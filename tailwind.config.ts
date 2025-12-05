@@ -26,10 +26,12 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          dark: "hsl(var(--terra-cotta-dark))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+          dark: "hsl(var(--olive-dark))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
