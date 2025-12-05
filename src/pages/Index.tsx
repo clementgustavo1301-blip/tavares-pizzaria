@@ -4,12 +4,9 @@ import { Hero } from "@/components/Hero";
 import { Menu } from "@/components/Menu";
 import { Footer } from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
-
 const Index = () => {
   const [cartOpen, setCartOpen] = useState(false);
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <Header onCartClick={() => setCartOpen(true)} />
       <main>
         <Hero />
@@ -20,17 +17,8 @@ const Index = () => {
               <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-6">
                 Nossa História
               </h2>
-              <p className="text-muted-foreground leading-relaxed mb-4">
-                A Tavares Pizzaria nasceu em 1985 da paixão de uma família italiana 
-                pela autêntica pizza artesanal. Desde então, mantemos viva a tradição 
-                de preparar cada pizza com ingredientes frescos selecionados e massa 
-                fermentada naturalmente.
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                Nosso forno a lenha, importado diretamente de Nápoles, é o coração 
-                da nossa cozinha, garantindo aquele sabor único e inconfundível que 
-                só uma verdadeira pizza italiana pode ter.
-              </p>
+              <p className="text-muted-foreground leading-relaxed mb-4">A Tavares Pizzaria nasceu em 2025. Desde então, mantemos viva a tradição de preparar cada pizza com ingredientes frescos selecionados.</p>
+              <p className="text-muted-foreground leading-relaxed">Nossa massa, preparada diariamente com todo cuidado, é o coração da nossa cozinha, garantindo uma pizza leve, crocante e com sabor inconfundível.</p>
               <div className="w-24 h-1 bg-primary mx-auto mt-8 rounded-full" />
             </div>
           </div>
@@ -38,8 +26,6 @@ const Index = () => {
       </main>
       <Footer />
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
