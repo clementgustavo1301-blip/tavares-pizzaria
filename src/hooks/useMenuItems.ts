@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+const PLACEHOLDER_PIZZA_IMAGE = "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop";
+
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
   ingredients: string[];
   price: number;
-  image: string;
+  image_url: string | null;
   is_vegetarian: boolean;
   category: string;
 }
@@ -45,7 +47,7 @@ export function useMenuItems() {
           description: item.description,
           ingredients: item.ingredients || [],
           price: item.price,
-          image: item.image,
+          image: item.image_url || PLACEHOLDER_PIZZA_IMAGE,
           isVegetarian: item.is_vegetarian,
           category: item.category,
         }));
