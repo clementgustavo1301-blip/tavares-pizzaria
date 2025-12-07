@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, ChevronRight, X } from "lucide-react";
+import { Ban, Check, ChevronRight, X } from "lucide-react";
 
 interface HalfHalfModalProps {
   open: boolean;
@@ -129,16 +129,18 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
                   (step === 1 && firstFlavor?.id === pizza.id) ||
                   (step === 2 && secondFlavor?.id === pizza.id);
                 const isFirstSelected = step === 2 && firstFlavor?.id === pizza.id;
+                const isUnavailable = pizza.available === false;
+                const isDisabled = isFirstSelected || isUnavailable;
 
                 return (
                   <button
                     key={pizza.id}
-                    onClick={() => !isFirstSelected && handleSelectFlavor(pizza)}
-                    disabled={isFirstSelected}
+                    onClick={() => !isDisabled && handleSelectFlavor(pizza)}
+                    disabled={isDisabled}
                     className={`flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all ${
                       isSelected
                         ? "border-primary bg-primary/10"
-                        : isFirstSelected
+                        : isDisabled
                         ? "border-border bg-muted/50 opacity-50 cursor-not-allowed"
                         : "border-border hover:border-primary/50 hover:bg-muted/30"
                     }`}
@@ -146,12 +148,20 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
                     <img
                       src={pizza.image}
                       alt={pizza.name}
-                      className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                      className={`w-16 h-16 object-cover rounded-md flex-shrink-0 ${isUnavailable ? "grayscale" : ""}`}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {pizza.name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground truncate">
+                          {pizza.name}
+                        </p>
+                        {isUnavailable && (
+                          <Badge variant="destructive" className="gap-1 text-xs flex-shrink-0">
+                            <Ban className="h-3 w-3" />
+                            Esgotado
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {pizza.ingredients.slice(0, 3).join(", ")}...
                       </p>
@@ -162,7 +172,7 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
                     {isSelected && (
                       <Check className="h-5 w-5 text-primary flex-shrink-0" />
                     )}
-                    {isFirstSelected && (
+                    {isFirstSelected && !isUnavailable && (
                       <Badge variant="secondary" className="flex-shrink-0">
                         1º Sabor
                       </Badge>
