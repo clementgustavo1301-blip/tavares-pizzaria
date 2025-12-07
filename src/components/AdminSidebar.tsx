@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { ChefHat, BarChart3, LogOut } from "lucide-react";
+import { ChefHat, BarChart3, LogOut, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,10 @@ const AdminSidebar = () => {
         <NavLink to="/cozinha" className={linkClass}>
           <ChefHat className="h-5 w-5" />
           Cozinha
+        </NavLink>
+        <NavLink to="/admin/cardapio" className={linkClass}>
+          <UtensilsCrossed className="h-5 w-5" />
+          Cardápio
         </NavLink>
         <NavLink to="/admin/relatorios" className={linkClass}>
           <BarChart3 className="h-5 w-5" />
