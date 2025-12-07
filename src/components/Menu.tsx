@@ -8,10 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slice } from "lucide-react";
 import { toast } from "sonner";
-
 export function Menu() {
-  const { pizzas, loading, error } = useMenuItems();
-  const { addToCart } = useOrder();
+  const {
+    pizzas,
+    loading,
+    error
+  } = useMenuItems();
+  const {
+    addToCart
+  } = useOrder();
   const [halfHalfOpen, setHalfHalfOpen] = useState(false);
 
   // Group pizzas by category
@@ -23,22 +28,16 @@ export function Menu() {
     acc[category].push(pizza);
     return acc;
   }, {} as Record<string, typeof pizzas>);
-
   const categoryOrder = ["Tradicionais", "Doces"];
-  const sortedCategories = Object.keys(groupedPizzas).sort(
-    (a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b)
-  );
-
+  const sortedCategories = Object.keys(groupedPizzas).sort((a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b));
   const handleAddHalfHalf = (pizza: Pizza) => {
     addToCart(pizza);
     toast.success("Pizza Meio a Meio adicionada!", {
       description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
-      duration: 2000,
+      duration: 2000
     });
   };
-
-  return (
-    <section id="cardapio" className="py-16 md:py-20 gradient-paper bg-paper-texture">
+  return <section id="cardapio" className="py-16 md:py-20 gradient-paper bg-paper-texture">
       <div className="container mx-auto px-4">
         <div className="text-center mb-12 md:mb-16">
           <span className="inline-block text-primary font-medium text-sm uppercase tracking-widest mb-3">
@@ -58,8 +57,7 @@ export function Menu() {
         </div>
 
         {/* Half & Half Card */}
-        {!loading && !error && pizzas.length > 0 && (
-          <div className="mb-12">
+        {!loading && !error && pizzas.length > 0 && <div className="mb-12">
             <Card className="max-w-lg mx-auto overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-secondary/5 hover:shadow-elevated transition-all duration-300">
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -68,75 +66,47 @@ export function Menu() {
                 <h3 className="text-2xl font-serif font-bold text-foreground mb-2">
                   Pizza Meio a Meio
                 </h3>
-                <p className="text-muted-foreground mb-4">
-                  Monte sua pizza com dois sabores diferentes! O valor será o do sabor mais caro.
-                </p>
-                <Button 
-                  onClick={() => setHalfHalfOpen(true)} 
-                  variant="hero" 
-                  size="lg"
-                  className="gap-2"
-                >
+                <p className="text-muted-foreground mb-4">Monte sua pizza com dois sabores diferentes! O valor será a metade de cada pizza.</p>
+                <Button onClick={() => setHalfHalfOpen(true)} variant="hero" size="lg" className="gap-2">
                   <Slice className="h-5 w-5" />
                   Montar Meio a Meio
                 </Button>
               </CardContent>
             </Card>
-          </div>
-        )}
+          </div>}
 
-        {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="space-y-4">
+        {loading && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {[...Array(4)].map((_, i) => <div key={i} className="space-y-4">
                 <Skeleton className="h-52 w-full rounded-lg" />
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-10 w-full" />
-              </div>
-            ))}
-          </div>
-        )}
+              </div>)}
+          </div>}
 
-        {error && (
-          <div className="text-center py-12">
+        {error && <div className="text-center py-12">
             <p className="text-destructive">{error}</p>
-          </div>
-        )}
+          </div>}
 
-        {!loading && !error && sortedCategories.map((category) => (
-          <div key={category} className="mb-12 last:mb-0">
+        {!loading && !error && sortedCategories.map(category => <div key={category} className="mb-12 last:mb-0">
             <h3 className="text-2xl md:text-3xl font-serif font-bold text-foreground mb-6 text-center">
               {category}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-              {groupedPizzas[category].map((pizza, index) => (
-                <div
-                  key={pizza.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
+              {groupedPizzas[category].map((pizza, index) => <div key={pizza.id} className="animate-fade-in" style={{
+            animationDelay: `${index * 0.1}s`
+          }}>
                   <PizzaCard pizza={pizza} />
-                </div>
-              ))}
+                </div>)}
             </div>
-          </div>
-        ))}
+          </div>)}
 
-        {!loading && !error && pizzas.length === 0 && (
-          <div className="text-center py-12">
+        {!loading && !error && pizzas.length === 0 && <div className="text-center py-12">
             <p className="text-muted-foreground">Nenhum item no cardápio ainda.</p>
-          </div>
-        )}
+          </div>}
       </div>
 
       {/* Half & Half Modal */}
-      <HalfHalfModal
-        open={halfHalfOpen}
-        onOpenChange={setHalfHalfOpen}
-        pizzas={pizzas}
-        onAddToCart={handleAddHalfHalf}
-      />
-    </section>
-  );
+      <HalfHalfModal open={halfHalfOpen} onOpenChange={setHalfHalfOpen} pizzas={pizzas} onAddToCart={handleAddHalfHalf} />
+    </section>;
 }
