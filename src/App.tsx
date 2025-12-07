@@ -7,6 +7,7 @@ import { OrderProvider } from "@/context/OrderContext";
 import Index from "./pages/Index";
 import Checkout from "./pages/Checkout";
 import OrderTracking from "./pages/OrderTracking";
+import MyOrders from "./pages/MyOrders";
 import Kitchen from "./pages/Kitchen";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/pedido/:orderId" element={<OrderTracking />} />
+            <Route path="/meus-pedidos" element={<MyOrders />} />
             <Route path="/cozinha" element={<Kitchen />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin/relatorios" element={<Reports />} />
