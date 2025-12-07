@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CreditCard, Banknote, QrCode, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Banknote, QrCode, Loader2, Bike, Store, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,8 +24,11 @@ const Checkout = () => {
   const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [deliveryType, setDeliveryType] = useState<"delivery" | "pickup">("delivery");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCEP, setIsFetchingCEP] = useState(false);
+
+  const PICKUP_ADDRESS = "Rua Delfino Leite, 164 - Alto de São Manoel";
 
   // Auto-fetch address when CEP is complete
   useEffect(() => {
@@ -79,18 +82,26 @@ const Checkout = () => {
     
     const cleanedCPF = cpf.replace(/\D/g, "");
     
-    if (!name.trim() || cleanedCPF.length !== 11 || !street.trim() || !number.trim() || !neighborhood.trim() || !city.trim()) {
+    // Validation depends on delivery type
+    if (!name.trim() || cleanedCPF.length !== 11) {
       toast.error("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
-    // Build full address string
-    const fullAddress = `${street}, ${number}${complement ? `, ${complement}` : ""} - ${neighborhood}, ${city}`;
+    if (deliveryType === "delivery" && (!street.trim() || !number.trim() || !neighborhood.trim() || !city.trim())) {
+      toast.error("Por favor, preencha o endereço completo para entrega.");
+      return;
+    }
+
+    // Build address based on delivery type
+    const fullAddress = deliveryType === "delivery" 
+      ? `${street}, ${number}${complement ? `, ${complement}` : ""} - ${neighborhood}, ${city}`
+      : "Retirada na Loja";
 
     setIsSubmitting(true);
     
     try {
-      const order = await placeOrder(name, fullAddress, paymentMethod, cleanedCPF);
+      const order = await placeOrder(name, fullAddress, paymentMethod, cleanedCPF, deliveryType);
       toast.success("Pedido realizado com sucesso!", {
         description: `Pedido #${order.id.slice(0, 8)}`,
       });
@@ -146,7 +157,9 @@ const Checkout = () => {
                 <span>R$ {cartTotal.toFixed(2).replace(".", ",")}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Entrega</span>
+                <span className="text-muted-foreground">
+                  {deliveryType === "delivery" ? "Entrega" : "Retirada"}
+                </span>
                 <span className="text-secondary font-medium">Grátis</span>
               </div>
               <Separator />
@@ -193,81 +206,132 @@ const Checkout = () => {
 
                 <Separator />
 
-                {/* Address */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Endereço de Entrega</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="cep">CEP *</Label>
-                    <div className="relative">
-                      <Input
-                        id="cep"
-                        placeholder="00000-000"
-                        value={cep}
-                        onChange={handleCEPChange}
-                        required
-                      />
-                      {isFetchingCEP && (
-                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                      )}
+                {/* Delivery Type Toggle */}
+                <div className="space-y-3">
+                  <Label>Tipo de Entrega</Label>
+                  <RadioGroup
+                    value={deliveryType}
+                    onValueChange={(value) => setDeliveryType(value as "delivery" | "pickup")}
+                    className="grid grid-cols-2 gap-3"
+                  >
+                    <div 
+                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        deliveryType === "delivery" 
+                          ? "border-primary bg-primary/10" 
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => setDeliveryType("delivery")}
+                    >
+                      <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
+                      <Bike className={`h-5 w-5 ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
+                      <Label htmlFor="delivery" className="cursor-pointer font-medium">
+                        Entrega
+                      </Label>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="street">Rua *</Label>
-                    <Input
-                      id="street"
-                      placeholder="Nome da rua"
-                      value={street}
-                      onChange={(e) => setStreet(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="number">Número *</Label>
-                      <Input
-                        id="number"
-                        placeholder="123"
-                        value={number}
-                        onChange={(e) => setNumber(e.target.value)}
-                        required
-                      />
+                    <div 
+                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        deliveryType === "pickup" 
+                          ? "border-primary bg-primary/10" 
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      onClick={() => setDeliveryType("pickup")}
+                    >
+                      <RadioGroupItem value="pickup" id="pickup" className="sr-only" />
+                      <Store className={`h-5 w-5 ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`} />
+                      <Label htmlFor="pickup" className="cursor-pointer font-medium">
+                        Retirada
+                      </Label>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="complement">Complemento</Label>
-                      <Input
-                        id="complement"
-                        placeholder="Apto, bloco..."
-                        value={complement}
-                        onChange={(e) => setComplement(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="neighborhood">Bairro *</Label>
-                    <Input
-                      id="neighborhood"
-                      placeholder="Bairro"
-                      value={neighborhood}
-                      onChange={(e) => setNeighborhood(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="city">Cidade *</Label>
-                    <Input
-                      id="city"
-                      placeholder="Cidade - UF"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      required
-                    />
-                  </div>
+                  </RadioGroup>
                 </div>
+
+                {/* Conditional Address Section */}
+                {deliveryType === "delivery" ? (
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Endereço de Entrega</h3>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="cep">CEP *</Label>
+                      <div className="relative">
+                        <Input
+                          id="cep"
+                          placeholder="00000-000"
+                          value={cep}
+                          onChange={handleCEPChange}
+                          required
+                        />
+                        {isFetchingCEP && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="street">Rua *</Label>
+                      <Input
+                        id="street"
+                        placeholder="Nome da rua"
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="number">Número *</Label>
+                        <Input
+                          id="number"
+                          placeholder="123"
+                          value={number}
+                          onChange={(e) => setNumber(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="complement">Complemento</Label>
+                        <Input
+                          id="complement"
+                          placeholder="Apto, bloco..."
+                          value={complement}
+                          onChange={(e) => setComplement(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="neighborhood">Bairro *</Label>
+                      <Input
+                        id="neighborhood"
+                        placeholder="Bairro"
+                        value={neighborhood}
+                        onChange={(e) => setNeighborhood(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Cidade *</Label>
+                      <Input
+                        id="city"
+                        placeholder="Cidade - UF"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-secondary/10 border border-secondary/30 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-5 w-5 text-secondary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-secondary">Retirar em:</p>
+                        <p className="text-foreground">{PICKUP_ADDRESS}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <Separator />
 
