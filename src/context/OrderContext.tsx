@@ -98,7 +98,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         return {
           id: dbOrder.id,
           customerName: dbOrder.customer_name,
-          customerAddress: dbOrder.customer_address || "",
+          customerAddress: dbOrder.address || "",
           total: dbOrder.total_amount,
           status: statusFromDb[dbOrder.status as DbOrderStatus] || "aguardando",
           paymentMethod: dbOrder.payment_method,
@@ -196,21 +196,26 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const placeOrder = useCallback(
     async (customerName: string, customerAddress: string, paymentMethod: string): Promise<Order> => {
+      // Prepare payload with correct column names and types
+      const orderPayload = {
+        customer_name: customerName,
+        address: customerAddress,
+        total_amount: Number(cartTotal),
+        status: "pending" as const,
+        payment_method: paymentMethod,
+      };
+      
+      console.log("Inserting order with payload:", orderPayload);
+
       // Insert order into Supabase
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
-        .insert({
-          customer_name: customerName,
-          customer_address: customerAddress,
-          total_amount: cartTotal,
-          status: "pending",
-          payment_method: paymentMethod,
-        })
+        .insert(orderPayload)
         .select()
         .single();
 
       if (orderError) {
-        console.error("Error creating order:", orderError);
+        console.error("Error creating order:", orderError.message, orderError.details);
         throw new Error("Erro ao criar pedido");
       }
 

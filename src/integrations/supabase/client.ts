@@ -11,7 +11,7 @@ export interface DbOrder {
   id: string;
   created_at: string;
   customer_name: string;
-  customer_address: string;
+  address: string;
   total_amount: number;
   status: OrderStatus;
   payment_method: string;
