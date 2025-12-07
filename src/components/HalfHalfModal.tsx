@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -99,6 +100,9 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
           <DialogTitle className="text-2xl font-serif">
             Montar Pizza Meio a Meio
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Selecione dois sabores para criar sua pizza meio a meio
+          </DialogDescription>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant={step === 1 ? "default" : "secondary"} className="gap-1">
               {firstFlavor ? <Check className="h-3 w-3" /> : "1"}
