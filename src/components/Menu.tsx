@@ -30,8 +30,8 @@ export function Menu() {
   }, {} as Record<string, typeof pizzas>);
   const categoryOrder = ["Tradicionais", "Doces"];
   const sortedCategories = Object.keys(groupedPizzas).sort((a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b));
-  const handleAddHalfHalf = (pizza: Pizza) => {
-    addToCart(pizza);
+  const handleAddHalfHalf = (pizza: Pizza, observation?: string) => {
+    addToCart(pizza, observation);
     toast.success("Pizza Meio a Meio adicionada!", {
       description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
       duration: 2000

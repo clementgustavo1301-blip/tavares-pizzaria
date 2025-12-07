@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Plus, Leaf, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Pizza } from "@/hooks/useMenuItems";
 import { useOrder } from "@/context/OrderContext";
 import { toast } from "sonner";
@@ -12,15 +14,17 @@ interface PizzaCardProps {
 
 export function PizzaCard({ pizza }: PizzaCardProps) {
   const { addToCart } = useOrder();
+  const [observation, setObservation] = useState("");
   const isAvailable = pizza.available !== false;
 
   const handleAddToCart = () => {
     if (!isAvailable) return;
-    addToCart(pizza);
+    addToCart(pizza, observation.trim() || undefined);
     toast.success("Pizza adicionada!", {
       description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
       duration: 2000,
     });
+    setObservation("");
   };
 
   return (
@@ -63,10 +67,19 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
           {pizza.description}
         </p>
         
-        <p className="text-xs text-muted-foreground mb-4 line-clamp-2">
+        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
           <span className="font-semibold text-foreground/70">Ingredientes:</span>{" "}
           {pizza.ingredients.join(", ")}
         </p>
+
+        {isAvailable && (
+          <Textarea
+            placeholder="Observações: Ex: Tirar cebola, pouco orégano..."
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            className="mb-3 text-sm min-h-[60px] resize-none"
+          />
+        )}
 
         <Button
           onClick={handleAddToCart}

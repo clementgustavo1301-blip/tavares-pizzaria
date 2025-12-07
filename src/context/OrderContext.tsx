@@ -7,6 +7,7 @@ export type OrderStatus = "aguardando" | "preparando" | "saiu" | "entregue";
 export interface CartItem {
   pizza: Pizza;
   quantity: number;
+  observation?: string;
 }
 
 export interface Order {
@@ -25,7 +26,7 @@ interface OrderContextType {
   orders: Order[];
   currentOrder: Order | null;
   isLoading: boolean;
-  addToCart: (pizza: Pizza) => void;
+  addToCart: (pizza: Pizza, observation?: string) => void;
   removeFromCart: (pizzaId: string) => void;
   updateQuantity: (pizzaId: string, quantity: number) => void;
   clearCart: () => void;
@@ -113,6 +114,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
               image: "",
             },
             quantity: item.quantity,
+            observation: item.observations || undefined,
           })),
         };
       });
@@ -153,12 +155,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchOrders]);
 
-  const addToCart = useCallback((pizza: Pizza) => {
+  const addToCart = useCallback((pizza: Pizza, observation?: string) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.pizza.id === pizza.id);
+      // For items with observations, always add as new item
+      if (observation) {
+        return [...prev, { pizza, quantity: 1, observation }];
+      }
+      const existing = prev.find((item) => item.pizza.id === pizza.id && !item.observation);
       if (existing) {
         return prev.map((item) =>
-          item.pizza.id === pizza.id
+          item.pizza.id === pizza.id && !item.observation
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
@@ -227,6 +233,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         pizza_name: item.pizza.name,
         quantity: item.quantity,
         price: item.pizza.price,
+        observations: item.observation || null,
       }));
 
       const { error: itemsError } = await supabase
