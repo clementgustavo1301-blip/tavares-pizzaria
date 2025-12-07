@@ -9,6 +9,7 @@ import Checkout from "./pages/Checkout";
 import OrderTracking from "./pages/OrderTracking";
 import Kitchen from "./pages/Kitchen";
 import Login from "./pages/Login";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/pedido/:orderId" element={<OrderTracking />} />
             <Route path="/cozinha" element={<Kitchen />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin/relatorios" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
