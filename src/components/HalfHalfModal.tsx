@@ -40,8 +40,8 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
 
   const handleConfirm = () => {
     if (firstFlavor && secondFlavor) {
-      // Calculate price: higher of the two
-      const finalPrice = Math.max(firstFlavor.price, secondFlavor.price);
+      // Calculate price: average of the two
+      const finalPrice = (firstFlavor.price + secondFlavor.price) / 2;
       
       // Create composite pizza object
       const halfHalfPizza: Pizza = {
@@ -84,7 +84,7 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
 
   const calculatedPrice = useMemo(() => {
     if (firstFlavor && secondFlavor) {
-      return Math.max(firstFlavor.price, secondFlavor.price);
+      return (firstFlavor.price + secondFlavor.price) / 2;
     }
     return null;
   }, [firstFlavor, secondFlavor]);
@@ -172,7 +172,7 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
           {firstFlavor && secondFlavor && (
             <div className="mb-4 p-3 bg-secondary/10 border border-secondary/30 rounded-lg">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Preço final (maior valor):</span>
+                <span className="text-muted-foreground">Preço final (média):</span>
                 <span className="text-xl font-bold text-primary">
                   R$ {calculatedPrice?.toFixed(2).replace(".", ",")}
                 </span>
