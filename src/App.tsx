@@ -11,6 +11,7 @@ import MyOrders from "./pages/MyOrders";
 import Kitchen from "./pages/Kitchen";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
+import MenuManager from "./pages/MenuManager";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/meus-pedidos" element={<MyOrders />} />
             <Route path="/cozinha" element={<Kitchen />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin/cardapio" element={<MenuManager />} />
             <Route path="/admin/relatorios" element={<Reports />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

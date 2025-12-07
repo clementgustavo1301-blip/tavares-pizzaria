@@ -12,6 +12,7 @@ export interface MenuItem {
   image_url: string | null;
   is_vegetarian: boolean;
   category: string;
+  available: boolean;
 }
 
 export interface Pizza {
@@ -23,6 +24,7 @@ export interface Pizza {
   image: string;
   isVegetarian?: boolean;
   category?: string;
+  available?: boolean;
 }
 
 export function useMenuItems() {
@@ -50,6 +52,7 @@ export function useMenuItems() {
           image: item.image_url || PLACEHOLDER_PIZZA_IMAGE,
           isVegetarian: item.is_vegetarian,
           category: item.category,
+          available: item.available !== false, // Default to true if null/undefined
         }));
 
         setPizzas(formattedPizzas);

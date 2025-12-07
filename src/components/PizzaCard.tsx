@@ -1,4 +1,4 @@
-import { Plus, Leaf } from "lucide-react";
+import { Plus, Leaf, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,10 @@ interface PizzaCardProps {
 
 export function PizzaCard({ pizza }: PizzaCardProps) {
   const { addToCart } = useOrder();
+  const isAvailable = pizza.available !== false;
 
   const handleAddToCart = () => {
+    if (!isAvailable) return;
     addToCart(pizza);
     toast.success("Pizza adicionada!", {
       description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
@@ -22,16 +24,27 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
   };
 
   return (
-    <Card className="group overflow-hidden card-rustic hover:shadow-elevated transition-all duration-300 animate-fade-in hover:-translate-y-1">
+    <Card className={`group overflow-hidden card-rustic transition-all duration-300 animate-fade-in ${isAvailable ? "hover:shadow-elevated hover:-translate-y-1" : "opacity-75"}`}>
       <div className="relative overflow-hidden">
         <img
           src={pizza.image}
           alt={pizza.name}
-          className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-500"
+          className={`w-full h-52 object-cover transition-transform duration-500 ${isAvailable ? "group-hover:scale-105" : "grayscale"}`}
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        {pizza.isVegetarian && (
+        
+        {/* Sold Out Badge */}
+        {!isAvailable && (
+          <div className="absolute inset-0 flex items-center justify-center bg-foreground/40">
+            <Badge className="bg-destructive text-destructive-foreground gap-1 text-lg px-4 py-2 shadow-lg">
+              <Ban className="h-5 w-5" />
+              Esgotado
+            </Badge>
+          </div>
+        )}
+        
+        {pizza.isVegetarian && isAvailable && (
           <Badge className="absolute top-3 right-3 bg-secondary text-secondary-foreground gap-1 shadow-md">
             <Leaf className="h-3 w-3" />
             Vegetariana
@@ -59,9 +72,19 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
           onClick={handleAddToCart}
           className="w-full group/btn"
           variant="default"
+          disabled={!isAvailable}
         >
-          <Plus className="h-4 w-4 mr-2 group-hover/btn:rotate-90 transition-transform duration-200" />
-          Adicionar ao Carrinho
+          {isAvailable ? (
+            <>
+              <Plus className="h-4 w-4 mr-2 group-hover/btn:rotate-90 transition-transform duration-200" />
+              Adicionar ao Carrinho
+            </>
+          ) : (
+            <>
+              <Ban className="h-4 w-4 mr-2" />
+              Indisponível
+            </>
+          )}
         </Button>
       </CardContent>
     </Card>
