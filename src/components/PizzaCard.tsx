@@ -2,7 +2,7 @@ import { Plus, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Pizza } from "@/data/pizzas";
+import { Pizza } from "@/hooks/useMenuItems";
 import { useOrder } from "@/context/OrderContext";
 import { toast } from "sonner";
 
