@@ -9,19 +9,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { Check, ChevronRight, X } from "lucide-react";
 
 interface HalfHalfModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pizzas: Pizza[];
-  onAddToCart: (pizza: Pizza) => void;
+  onAddToCart: (pizza: Pizza, observation?: string) => void;
 }
 
 export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfHalfModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [firstFlavor, setFirstFlavor] = useState<Pizza | null>(null);
   const [secondFlavor, setSecondFlavor] = useState<Pizza | null>(null);
+  const [observation, setObservation] = useState("");
 
   // Filter only "Tradicionais" pizzas for half & half
   const traditionalPizzas = useMemo(
@@ -58,7 +60,7 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
         category: "Meio a Meio",
       };
 
-      onAddToCart(halfHalfPizza);
+      onAddToCart(halfHalfPizza, observation.trim() || undefined);
       handleReset();
       onOpenChange(false);
     }
@@ -68,6 +70,7 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
     setStep(1);
     setFirstFlavor(null);
     setSecondFlavor(null);
+    setObservation("");
   };
 
   const handleBack = () => {
@@ -168,14 +171,22 @@ export function HalfHalfModal({ open, onOpenChange, pizzas, onAddToCart }: HalfH
         </ScrollArea>
 
         <div className="p-6 pt-4 border-t bg-muted/30">
-          {/* Price Preview */}
+          {/* Observations and Price Preview */}
           {firstFlavor && secondFlavor && (
-            <div className="mb-4 p-3 bg-secondary/10 border border-secondary/30 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Preço final (média):</span>
-                <span className="text-xl font-bold text-primary">
-                  R$ {calculatedPrice?.toFixed(2).replace(".", ",")}
-                </span>
+            <div className="space-y-3 mb-4">
+              <Textarea
+                placeholder="Observações: Ex: Tirar cebola, pouco orégano..."
+                value={observation}
+                onChange={(e) => setObservation(e.target.value)}
+                className="text-sm min-h-[60px] resize-none"
+              />
+              <div className="p-3 bg-secondary/10 border border-secondary/30 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Preço final (média):</span>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {calculatedPrice?.toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
               </div>
             </div>
           )}

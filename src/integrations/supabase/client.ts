@@ -23,4 +23,5 @@ export interface DbOrderItem {
   pizza_name: string;
   quantity: number;
   price: number;
+  observations?: string | null;
 }

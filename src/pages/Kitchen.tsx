@@ -150,18 +150,22 @@ const Kitchen = () => {
                               </p>
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               {order.items.map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="flex items-center gap-2 text-sm"
-                                >
-                                  <span className="bg-primary/10 text-primary font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center">
-                                    {item.quantity}
-                                  </span>
-                                  <span className="font-medium">
-                                    {item.pizza.name}
-                                  </span>
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <span className="bg-primary/10 text-primary font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center">
+                                      {item.quantity}
+                                    </span>
+                                    <span className="font-medium">
+                                      {item.pizza.name}
+                                    </span>
+                                  </div>
+                                  {item.observation && (
+                                    <p className="ml-8 text-xs font-bold text-destructive bg-destructive/10 px-2 py-1 rounded">
+                                      ⚠️ {item.observation}
+                                    </p>
+                                  )}
                                 </div>
                               ))}
                             </div>

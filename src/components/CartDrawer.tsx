@@ -70,6 +70,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                     <h4 className="font-semibold text-foreground truncate">
                       {item.pizza.name}
                     </h4>
+                    {item.observation && (
+                      <p className="text-xs text-muted-foreground italic mt-0.5 line-clamp-2">
+                        📝 {item.observation}
+                      </p>
+                    )}
                     <p className="text-sm text-primary font-bold mt-0.5">
                       R$ {(item.pizza.price * item.quantity).toFixed(2).replace(".", ",")}
                     </p>
