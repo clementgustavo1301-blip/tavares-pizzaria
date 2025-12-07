@@ -227,14 +227,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         throw new Error("Erro ao criar pedido");
       }
 
-      // Insert order items
+      // Insert order items with correct types
       const orderItems = cart.map((item) => ({
         order_id: orderData.id,
-        pizza_name: item.pizza.name,
-        quantity: item.quantity,
-        price: item.pizza.price,
-        observations: item.observation || null,
+        pizza_name: String(item.pizza.name),
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.pizza.price),
+        observations: item.observation ? String(item.observation) : null,
       }));
+
+      console.log("Items Payload:", orderItems);
 
       const { error: itemsError } = await supabase
         .from("order_items")
