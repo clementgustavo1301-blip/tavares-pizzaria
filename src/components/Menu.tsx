@@ -1,9 +1,18 @@
+import { useState } from "react";
 import { PizzaCard } from "./PizzaCard";
-import { useMenuItems } from "@/hooks/useMenuItems";
+import { HalfHalfModal } from "./HalfHalfModal";
+import { useMenuItems, Pizza } from "@/hooks/useMenuItems";
+import { useOrder } from "@/context/OrderContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Slice } from "lucide-react";
+import { toast } from "sonner";
 
 export function Menu() {
   const { pizzas, loading, error } = useMenuItems();
+  const { addToCart } = useOrder();
+  const [halfHalfOpen, setHalfHalfOpen] = useState(false);
 
   // Group pizzas by category
   const groupedPizzas = pizzas.reduce((acc, pizza) => {
@@ -19,6 +28,14 @@ export function Menu() {
   const sortedCategories = Object.keys(groupedPizzas).sort(
     (a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b)
   );
+
+  const handleAddHalfHalf = (pizza: Pizza) => {
+    addToCart(pizza);
+    toast.success("Pizza Meio a Meio adicionada!", {
+      description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
+      duration: 2000,
+    });
+  };
 
   return (
     <section id="cardapio" className="py-16 md:py-20 gradient-paper bg-paper-texture">
@@ -39,6 +56,34 @@ export function Menu() {
             <div className="w-12 h-0.5 bg-primary/30 rounded-full" />
           </div>
         </div>
+
+        {/* Half & Half Card */}
+        {!loading && !error && pizzas.length > 0 && (
+          <div className="mb-12">
+            <Card className="max-w-lg mx-auto overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-secondary/5 hover:shadow-elevated transition-all duration-300">
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Slice className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-2xl font-serif font-bold text-foreground mb-2">
+                  Pizza Meio a Meio
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Monte sua pizza com dois sabores diferentes! O valor será o do sabor mais caro.
+                </p>
+                <Button 
+                  onClick={() => setHalfHalfOpen(true)} 
+                  variant="hero" 
+                  size="lg"
+                  className="gap-2"
+                >
+                  <Slice className="h-5 w-5" />
+                  Montar Meio a Meio
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
@@ -84,6 +129,14 @@ export function Menu() {
           </div>
         )}
       </div>
+
+      {/* Half & Half Modal */}
+      <HalfHalfModal
+        open={halfHalfOpen}
+        onOpenChange={setHalfHalfOpen}
+        pizzas={pizzas}
+        onAddToCart={handleAddHalfHalf}
+      />
     </section>
   );
 }
