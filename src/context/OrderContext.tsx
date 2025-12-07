@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Pizza } from "@/data/pizzas";
 
 export type OrderStatus = "aguardando" | "preparando" | "saiu" | "entregue";
@@ -36,10 +36,64 @@ interface OrderContextType {
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
+const ORDERS_STORAGE_KEY = "tavares_pizzaria_orders";
+
+// Helper to load orders from localStorage
+const loadOrdersFromStorage = (): Order[] => {
+  try {
+    const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed.map((order: Order) => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+      }));
+    }
+  } catch (e) {
+    console.error("Error loading orders from localStorage:", e);
+  }
+  return [];
+};
+
+// Helper to save orders to localStorage
+const saveOrdersToStorage = (orders: Order[]) => {
+  try {
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  } catch (e) {
+    console.error("Error saving orders to localStorage:", e);
+  }
+};
+
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => loadOrdersFromStorage());
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+
+  // Persist orders to localStorage whenever they change
+  useEffect(() => {
+    saveOrdersToStorage(orders);
+  }, [orders]);
+
+  // Listen for storage changes from other tabs/windows (auto-update)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === ORDERS_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          const updatedOrders = parsed.map((order: Order) => ({
+            ...order,
+            createdAt: new Date(order.createdAt),
+          }));
+          setOrders(updatedOrders);
+        } catch (err) {
+          console.error("Error parsing storage update:", err);
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const addToCart = useCallback((pizza: Pizza) => {
     setCart((prev) => {
