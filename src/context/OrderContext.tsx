@@ -29,7 +29,7 @@ interface OrderContextType {
   removeFromCart: (pizzaId: string) => void;
   updateQuantity: (pizzaId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (customerName: string, customerAddress: string, paymentMethod: string) => Promise<Order>;
+  placeOrder: (customerName: string, customerAddress: string, paymentMethod: string, cpf: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   getOrderById: (orderId: string) => Order | undefined;
   refreshOrders: () => Promise<void>;
@@ -195,7 +195,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const placeOrder = useCallback(
-    async (customerName: string, customerAddress: string, paymentMethod: string): Promise<Order> => {
+    async (customerName: string, customerAddress: string, paymentMethod: string, cpf: string): Promise<Order> => {
       // Prepare payload with correct column names and types
       const orderPayload = {
         customer_name: customerName,
@@ -203,6 +203,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         total_amount: Number(cartTotal),
         status: "pending" as const,
         payment_method: paymentMethod,
+        cpf: cpf,
       };
       
       console.log("Inserting order with payload:", orderPayload);
