@@ -68,6 +68,12 @@ export function Header({ onCartClick }: HeaderProps) {
             >
               Contato
             </a>
+            <a
+              href="/login"
+              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
+            >
+              Área Restrita
+            </a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -127,6 +133,13 @@ export function Header({ onCartClick }: HeaderProps) {
               onClick={() => setMobileMenuOpen(false)}
             >
               Contato
+            </a>
+            <a
+              href="/login"
+              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Área Restrita
             </a>
           </nav>
         </div>
