@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Pizza } from "@/data/pizzas";
+import { supabase, DbOrder, DbOrderItem, OrderStatus as DbOrderStatus } from "@/integrations/supabase/client";
 
 export type OrderStatus = "aguardando" | "preparando" | "saiu" | "entregue";
 
@@ -23,77 +24,134 @@ interface OrderContextType {
   cart: CartItem[];
   orders: Order[];
   currentOrder: Order | null;
+  isLoading: boolean;
   addToCart: (pizza: Pizza) => void;
   removeFromCart: (pizzaId: string) => void;
   updateQuantity: (pizzaId: string, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (customerName: string, customerAddress: string, paymentMethod: string) => Order;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  placeOrder: (customerName: string, customerAddress: string, paymentMethod: string) => Promise<Order>;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   getOrderById: (orderId: string) => Order | undefined;
+  refreshOrders: () => Promise<void>;
   cartTotal: number;
   cartItemsCount: number;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-const ORDERS_STORAGE_KEY = "tavares_pizzaria_orders";
-
-// Helper to load orders from localStorage
-const loadOrdersFromStorage = (): Order[] => {
-  try {
-    const stored = localStorage.getItem(ORDERS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return parsed.map((order: Order) => ({
-        ...order,
-        createdAt: new Date(order.createdAt),
-      }));
-    }
-  } catch (e) {
-    console.error("Error loading orders from localStorage:", e);
-  }
-  return [];
+// Map between frontend and database status
+const statusToDb: Record<OrderStatus, DbOrderStatus> = {
+  aguardando: "pending",
+  preparando: "preparing",
+  saiu: "ready",
+  entregue: "delivered",
 };
 
-// Helper to save orders to localStorage
-const saveOrdersToStorage = (orders: Order[]) => {
-  try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
-  } catch (e) {
-    console.error("Error saving orders to localStorage:", e);
-  }
+const statusFromDb: Record<DbOrderStatus, OrderStatus> = {
+  pending: "aguardando",
+  preparing: "preparando",
+  ready: "saiu",
+  delivered: "entregue",
 };
 
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>(() => loadOrdersFromStorage());
+  const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Persist orders to localStorage whenever they change
-  useEffect(() => {
-    saveOrdersToStorage(orders);
-  }, [orders]);
+  // Fetch orders from Supabase
+  const fetchOrders = useCallback(async () => {
+    try {
+      const { data: ordersData, error: ordersError } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-  // Listen for storage changes from other tabs/windows (auto-update)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === ORDERS_STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          const updatedOrders = parsed.map((order: Order) => ({
-            ...order,
-            createdAt: new Date(order.createdAt),
-          }));
-          setOrders(updatedOrders);
-        } catch (err) {
-          console.error("Error parsing storage update:", err);
-        }
+      if (ordersError) {
+        console.error("Error fetching orders:", ordersError);
+        return;
       }
-    };
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
+      if (!ordersData || ordersData.length === 0) {
+        setOrders([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch all order items
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("order_items")
+        .select("*");
+
+      if (itemsError) {
+        console.error("Error fetching order items:", itemsError);
+        return;
+      }
+
+      // Map database orders to frontend format
+      const mappedOrders: Order[] = ordersData.map((dbOrder: DbOrder) => {
+        const orderItems = (itemsData || []).filter(
+          (item: DbOrderItem) => item.order_id === dbOrder.id
+        );
+
+        return {
+          id: dbOrder.id,
+          customerName: dbOrder.customer_name,
+          customerAddress: dbOrder.customer_address || "",
+          total: dbOrder.total_amount,
+          status: statusFromDb[dbOrder.status as DbOrderStatus] || "aguardando",
+          paymentMethod: dbOrder.payment_method,
+          createdAt: new Date(dbOrder.created_at),
+          items: orderItems.map((item: DbOrderItem) => ({
+            pizza: {
+              id: item.id,
+              name: item.pizza_name,
+              price: item.price,
+              description: "",
+              ingredients: [],
+              image: "",
+            },
+            quantity: item.quantity,
+          })),
+        };
+      });
+
+      setOrders(mappedOrders);
+    } catch (error) {
+      console.error("Error in fetchOrders:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Initial fetch and real-time subscription
+  useEffect(() => {
+    fetchOrders();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel("orders-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          fetchOrders();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_items" },
+        () => {
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchOrders]);
 
   const addToCart = useCallback((pizza: Pizza) => {
     setCart((prev) => {
@@ -137,26 +195,76 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const placeOrder = useCallback(
-    (customerName: string, customerAddress: string, paymentMethod: string) => {
+    async (customerName: string, customerAddress: string, paymentMethod: string): Promise<Order> => {
+      // Insert order into Supabase
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer_name: customerName,
+          customer_address: customerAddress,
+          total_amount: cartTotal,
+          status: "pending",
+          payment_method: paymentMethod,
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error("Error creating order:", orderError);
+        throw new Error("Erro ao criar pedido");
+      }
+
+      // Insert order items
+      const orderItems = cart.map((item) => ({
+        order_id: orderData.id,
+        pizza_name: item.pizza.name,
+        quantity: item.quantity,
+        price: item.pizza.price,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error("Error creating order items:", itemsError);
+        throw new Error("Erro ao criar itens do pedido");
+      }
+
       const order: Order = {
-        id: `PED-${Date.now().toString(36).toUpperCase()}`,
+        id: orderData.id,
         items: [...cart],
         total: cartTotal,
         status: "aguardando",
         customerName,
         customerAddress,
         paymentMethod,
-        createdAt: new Date(),
+        createdAt: new Date(orderData.created_at),
       };
-      setOrders((prev) => [...prev, order]);
+
       setCurrentOrder(order);
       clearCart();
+      
+      // Refresh orders list
+      await fetchOrders();
+      
       return order;
     },
-    [cart, cartTotal, clearCart]
+    [cart, cartTotal, clearCart, fetchOrders]
   );
 
-  const updateOrderStatus = useCallback((orderId: string, status: OrderStatus) => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: statusToDb[status] })
+      .eq("id", orderId);
+
+    if (error) {
+      console.error("Error updating order status:", error);
+      throw new Error("Erro ao atualizar status");
+    }
+
+    // Update local state immediately for responsiveness
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId ? { ...order, status } : order
@@ -172,12 +280,18 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     [orders]
   );
 
+  const refreshOrders = useCallback(async () => {
+    setIsLoading(true);
+    await fetchOrders();
+  }, [fetchOrders]);
+
   return (
     <OrderContext.Provider
       value={{
         cart,
         orders,
         currentOrder,
+        isLoading,
         addToCart,
         removeFromCart,
         updateQuantity,
@@ -185,6 +299,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         placeOrder,
         updateOrderStatus,
         getOrderById,
+        refreshOrders,
         cartTotal,
         cartItemsCount,
       }}

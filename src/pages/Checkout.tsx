@@ -48,15 +48,18 @@ const Checkout = () => {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const order = placeOrder(name, address, paymentMethod);
-    toast.success("Pedido realizado com sucesso!", {
-      description: `Pedido ${order.id}`,
-    });
-    
-    navigate(`/pedido/${order.id}`);
+    try {
+      const order = await placeOrder(name, address, paymentMethod);
+      toast.success("Pedido realizado com sucesso!", {
+        description: `Pedido #${order.id.slice(0, 8)}`,
+      });
+      navigate(`/pedido/${order.id}`);
+    } catch (error) {
+      toast.error("Erro ao realizar pedido. Tente novamente.");
+      console.error("Order error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
