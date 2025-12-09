@@ -1,4 +1,4 @@
-import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users } from "lucide-react";
+import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users, Bike } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,10 @@ const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType
   aguardando: { label: "Novos Pedidos", icon: Clock, bgColor: "bg-accent", textColor: "text-accent-foreground" },
   preparando: { label: "No Forno", icon: ChefHat, bgColor: "bg-primary", textColor: "text-primary-foreground" },
   saiu: { label: "Pronto / Saiu", icon: Truck, bgColor: "bg-secondary", textColor: "text-secondary-foreground" },
-  entregue: { label: "Entregue", icon: CheckCircle, bgColor: "bg-muted", textColor: "text-muted-foreground" },
+  entregue: { label: "Concluído", icon: CheckCircle, bgColor: "bg-muted", textColor: "text-muted-foreground" },
 };
 
-const columns: OrderStatus[] = ["aguardando", "preparando", "saiu"];
+const columns: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
 
 const Kitchen = () => {
   const { orders, updateOrderStatus, refreshOrders, isLoading } = useOrder();
@@ -39,7 +39,14 @@ const Kitchen = () => {
     }
   };
 
-  const activeOrders = orders.filter((o) => o.status !== "entregue");
+  const activeOrders = orders.filter((o) => {
+    if (o.status !== "entregue") return true;
+
+    // For completed orders, only show today's orders
+    const today = new Date().toDateString();
+    const orderDate = new Date(o.createdAt).toDateString();
+    return orderDate === today;
+  });
 
   return (
     <AdminLayout>
@@ -61,7 +68,7 @@ const Kitchen = () => {
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-foreground gap-2 py-1.5 px-3">
                 <Users className="h-3.5 w-3.5" />
-                <span className="font-bold">{activeOrders.length}</span> 
+                <span className="font-bold">{activeOrders.length}</span>
                 <span className="hidden sm:inline">pedidos ativos</span>
               </Badge>
               <Button
@@ -96,7 +103,7 @@ const Kitchen = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {columns.map((status) => {
                 const config = statusConfig[status];
                 const Icon = config.icon;
@@ -174,16 +181,31 @@ const Kitchen = () => {
                               <span className="font-bold text-lg text-primary">
                                 R$ {order.total.toFixed(2).replace(".", ",")}
                               </span>
-                              {getNextStatus(order.status) && (
+                              <div className="flex gap-2">
                                 <Button
                                   size="sm"
-                                  onClick={() => handleAdvanceStatus(order)}
-                                  className="gap-1"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.customerAddress + " Mossoro RN")}`;
+                                    const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName}\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
+                                    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+                                  }}
+                                  className="gap-1 border-primary/20 hover:bg-primary/5"
+                                  title="Enviar para Entregador"
                                 >
-                                  Avançar
-                                  <ArrowRight className="h-3 w-3" />
+                                  <Bike className="h-3 w-3" />
                                 </Button>
-                              )}
+                                {getNextStatus(order.status) && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAdvanceStatus(order)}
+                                    className="gap-1"
+                                  >
+                                    Avançar
+                                    <ArrowRight className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

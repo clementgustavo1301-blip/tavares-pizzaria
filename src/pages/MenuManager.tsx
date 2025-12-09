@@ -241,20 +241,24 @@ export default function MenuManager() {
 
     setIsDeleting(true);
     try {
+      console.log("Attempting to delete item:", itemToDelete.id);
       const { error } = await supabase
         .from("menu_items")
         .delete()
         .eq("id", itemToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase DELETE error:", error);
+        throw error;
+      }
 
       setItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
       toast.success(`"${itemToDelete.name}" foi removido do cardápio.`);
       setItemToDelete(null);
     } catch (err: any) {
-      console.error("Error deleting item:", err);
+      console.error("Full error object:", err);
       if (err.code === "401" || err.status === 401) {
-        toast.error("Erro de Permissão: Você precisa configurar as Policies do Supabase para permitir criar itens.");
+        toast.error("Erro de Permissão: Você precisa configurar as Policies do Supabase para permitir excluir itens.");
       } else {
         toast.error("Erro ao excluir item");
       }
