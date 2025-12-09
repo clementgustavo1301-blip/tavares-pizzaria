@@ -280,7 +280,6 @@ export default function MenuManager() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
-                <Plus className="w-4 h-4 mr-2" />
                 Adicionar Pizza
               </Button>
             </DialogTrigger>
