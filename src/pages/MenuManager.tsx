@@ -13,7 +13,36 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getPizzaImageByName } from "@/utils/imageHelper";
 
 interface MenuItem {
   id: string;
@@ -31,6 +60,17 @@ export default function MenuManager() {
   const [editedPrices, setEditedPrices] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    category: "Tradicionais",
+    price: "",
+    description: "",
+    image_url: "",
+  });
 
   useEffect(() => {
     fetchMenuItems();
@@ -124,16 +164,225 @@ export default function MenuManager() {
     }
   };
 
+  const handleAddItem = async () => {
+    if (!newItem.name || !newItem.price) {
+      toast.error("Nome e preço são obrigatórios");
+      return;
+    }
+
+    // Handle price input allowing comma
+    const priceNum = parseFloat(newItem.price.replace(",", "."));
+    if (isNaN(priceNum) || priceNum <= 0) {
+      toast.error("Preço inválido");
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      let finalImageUrl = newItem.image_url;
+      if (!finalImageUrl) {
+        finalImageUrl = getPizzaImageByName(newItem.name);
+      }
+
+      // Check if image is just empty whitespace
+      if (typeof finalImageUrl === 'string' && finalImageUrl.trim() === '') {
+        finalImageUrl = getPizzaImageByName(newItem.name);
+      }
+
+      const { data, error } = await supabase
+        .from("menu_items")
+        .insert([
+          {
+            name: newItem.name,
+            category: newItem.category,
+            price: priceNum,
+            description: newItem.description,
+            image_url: finalImageUrl,
+            available: true,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Pizza adicionada com sucesso!");
+
+      if (data) {
+        setItems((prev) => [data, ...prev]);
+        setEditedPrices((prev) => ({
+          ...prev,
+          [data.id]: data.price.toFixed(2).replace(".", ","),
+        }));
+      }
+
+      setIsAddModalOpen(false);
+      setNewItem({
+        name: "",
+        category: "Tradicionais",
+        price: "",
+        description: "",
+        image_url: "",
+      });
+    } catch (err: any) {
+      console.error("Error adding item:", err);
+      if (err.code === "401" || err.status === 401) {
+        toast.error("Erro de Permissão: Você precisa configurar as Policies do Supabase para permitir criar itens.");
+      } else {
+        toast.error("Erro ao adicionar pizza: " + (err.message || "Erro desconhecido"));
+      }
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("menu_items")
+        .delete()
+        .eq("id", itemToDelete.id);
+
+      if (error) throw error;
+
+      setItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
+      toast.success(`"${itemToDelete.name}" foi removido do cardápio.`);
+      setItemToDelete(null);
+    } catch (err: any) {
+      console.error("Error deleting item:", err);
+      if (err.code === "401" || err.status === 401) {
+        toast.error("Erro de Permissão: Você precisa configurar as Policies do Supabase para permitir criar itens.");
+      } else {
+        toast.error("Erro ao excluir item");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="p-6 md:p-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-serif font-bold text-foreground mb-2">
-            Gerenciar Cardápio
-          </h1>
-          <p className="text-muted-foreground">
-            Atualize preços e disponibilidade dos itens do cardápio.
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-foreground mb-2">
+              Gerenciar Cardápio
+            </h1>
+            <p className="text-muted-foreground">
+              Atualize preços e disponibilidade dos itens do cardápio.
+            </p>
+          </div>
+
+          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Pizza
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Adicionar Nova Pizza</DialogTitle>
+                <DialogDescription>
+                  Preencha os dados abaixo para adicionar um novo item ao cardápio.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nome *</Label>
+                  <Input
+                    id="name"
+                    value={newItem.name}
+                    onChange={(e) =>
+                      setNewItem({ ...newItem, name: e.target.value })
+                    }
+                    placeholder="Ex: Calabresa"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Categoria</Label>
+                    <Select
+                      value={newItem.category}
+                      onValueChange={(val) =>
+                        setNewItem({ ...newItem, category: val })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Tradicionais">
+                          Tradicionais
+                        </SelectItem>
+                        <SelectItem value="Doces">Doces</SelectItem>
+                        <SelectItem value="Especiais">Especiais</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="price">Preço (R$) *</Label>
+                    <Input
+                      id="price"
+                      value={newItem.price}
+                      onChange={(e) =>
+                        setNewItem({ ...newItem, price: e.target.value })
+                      }
+                      placeholder="0,00"
+                      type="number" // Changing to number as requested, but keeping text handling in logic
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Descrição (Ingredientes)</Label>
+                  <Textarea
+                    id="description"
+                    value={newItem.description}
+                    onChange={(e) =>
+                      setNewItem({ ...newItem, description: e.target.value })
+                    }
+                    placeholder="Ex: Molho de tomate, mussarela..."
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="image_url">URL da Imagem</Label>
+                  <Input
+                    id="image_url"
+                    value={newItem.image_url}
+                    onChange={(e) =>
+                      setNewItem({ ...newItem, image_url: e.target.value })
+                    }
+                    placeholder="https://..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco para usar imagem automática.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleAddItem} disabled={isAdding}>
+                  {isAdding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {loading ? (
@@ -166,9 +415,8 @@ export default function MenuManager() {
                       <img
                         src={item.image_url || PLACEHOLDER_IMAGE}
                         alt={item.name}
-                        className={`w-14 h-14 object-cover rounded-lg ${
-                          !item.available ? "grayscale" : ""
-                        }`}
+                        className={`w-14 h-14 object-cover rounded-lg ${!item.available ? "grayscale" : ""
+                          }`}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{item.name}</TableCell>
@@ -198,20 +446,30 @@ export default function MenuManager() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Button
-                        size="sm"
-                        onClick={() => handleSavePrice(item)}
-                        disabled={savingId === item.id}
-                      >
-                        {savingId === item.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-1" />
-                            Salvar
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSavePrice(item)}
+                          disabled={savingId === item.id}
+                        >
+                          {savingId === item.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-1" />
+                              Salvar
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setItemToDelete(item)}
+                          disabled={savingId === item.id || togglingId === item.id}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -219,6 +477,35 @@ export default function MenuManager() {
             </Table>
           </div>
         )}
+
+        <AlertDialog
+          open={!!itemToDelete}
+          onOpenChange={(open) => !open && setItemToDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Isso excluirá permanentemente a
+                pizza "{itemToDelete?.name}" do cardápio.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeleteItem();
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );
