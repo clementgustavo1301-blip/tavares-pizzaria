@@ -6,6 +6,7 @@ export interface Pizza {
   price: number;
   image: string;
   isVegetarian?: boolean;
+  category?: string;
 }
 
 export const pizzas: Pizza[] = [

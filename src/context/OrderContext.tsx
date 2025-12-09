@@ -212,7 +212,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         cpf: cpf,
         delivery_type: deliveryType,
       };
-      
+
       console.log("Inserting order with payload:", orderPayload);
 
       // Insert order into Supabase
@@ -260,10 +260,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
       setCurrentOrder(order);
       clearCart();
-      
+
       // Refresh orders list
       await fetchOrders();
-      
+
       return order;
     },
     [cart, cartTotal, clearCart, fetchOrders]
@@ -301,25 +301,40 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     await fetchOrders();
   }, [fetchOrders]);
 
+  const value = React.useMemo(() => ({
+    cart,
+    orders,
+    currentOrder,
+    isLoading,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    placeOrder,
+    updateOrderStatus,
+    getOrderById,
+    refreshOrders,
+    cartTotal,
+    cartItemsCount,
+  }), [
+    cart,
+    orders,
+    currentOrder,
+    isLoading,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    placeOrder,
+    updateOrderStatus,
+    getOrderById,
+    refreshOrders,
+    cartTotal,
+    cartItemsCount
+  ]);
+
   return (
-    <OrderContext.Provider
-      value={{
-        cart,
-        orders,
-        currentOrder,
-        isLoading,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        placeOrder,
-        updateOrderStatus,
-        getOrderById,
-        refreshOrders,
-        cartTotal,
-        cartItemsCount,
-      }}
-    >
+    <OrderContext.Provider value={value}>
       {children}
     </OrderContext.Provider>
   );

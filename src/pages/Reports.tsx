@@ -56,7 +56,7 @@ const Reports = () => {
 
   // Calculate stats
   const totalRevenue = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
-  
+
   const todayRevenue = orders
     .filter((order) => {
       const orderDate = new Date(order.created_at);
@@ -97,16 +97,16 @@ const Reports = () => {
   // Generate PDF
   const generatePDF = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(20);
     doc.setTextColor(192, 64, 0); // Terra Cotta color
     doc.text("Tavares Pizzaria", 105, 20, { align: "center" });
-    
+
     doc.setFontSize(14);
     doc.setTextColor(62, 39, 35); // Coffee color
     doc.text("Relatório Gerencial", 105, 30, { align: "center" });
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 105, 38, { align: "center" });
@@ -115,7 +115,7 @@ const Reports = () => {
     doc.setFontSize(12);
     doc.setTextColor(62, 39, 35);
     doc.text("Resumo Financeiro", 14, 55);
-    
+
     autoTable(doc, {
       startY: 60,
       head: [["Período", "Valor"]],
@@ -290,48 +290,50 @@ const Reports = () => {
                 Nenhum pedido registrado ainda.
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.slice(0, 20).map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        {new Date(order.created_at).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {order.customer_name}
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {order.payment_method}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            order.status === "delivered"
-                              ? "secondary"
-                              : order.status === "pending"
-                              ? "outline"
-                              : "default"
-                          }
-                        >
-                          {statusLabels[order.status] || order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        R$ {(order.total_amount || 0).toFixed(2).replace(".", ",")}
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.slice(0, 20).map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {new Date(order.created_at).toLocaleDateString("pt-BR")}
+                        </TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {order.customer_name}
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {order.payment_method}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              order.status === "delivered"
+                                ? "secondary"
+                                : order.status === "pending"
+                                  ? "outline"
+                                  : "default"
+                            }
+                          >
+                            {statusLabels[order.status] || order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold whitespace-nowrap">
+                          R$ {(order.total_amount || 0).toFixed(2).replace(".", ",")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
