@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import Reports from "./pages/Reports";
 import MenuManager from "./pages/MenuManager";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -30,8 +31,11 @@ const App = () => (
             <Route path="/meus-pedidos" element={<MyOrders />} />
             <Route path="/cozinha" element={<Kitchen />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin/cardapio" element={<MenuManager />} />
-            <Route path="/admin/relatorios" element={<Reports />} />
+
+            <Route element={<ProtectedRoute />}>
+              <Route path="/admin/cardapio" element={<MenuManager />} />
+              <Route path="/admin/relatorios" element={<Reports />} />
+            </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

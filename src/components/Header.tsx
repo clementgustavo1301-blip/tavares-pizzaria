@@ -1,4 +1,4 @@
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOrder } from "@/context/OrderContext";
 import { useState, useEffect } from "react";
@@ -115,7 +115,7 @@ export function Header({ onCartClick }: HeaderProps) {
         <div
           className={cn(
             "md:hidden overflow-hidden transition-all duration-300 ease-in-out",
-            mobileMenuOpen ? "max-h-48 opacity-100 mt-4" : "max-h-0 opacity-0"
+            mobileMenuOpen ? "max-h-[400px] opacity-100 mt-4" : "max-h-0 opacity-0"
           )}
         >
           <nav className="flex flex-col gap-1 pb-4 border-t pt-4">
@@ -149,9 +149,10 @@ export function Header({ onCartClick }: HeaderProps) {
             </a>
             <a
               href="/login"
-              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
+              onClick={() => setMobileMenuOpen(false)} // Certifique-se de que, ao clicar, o menu feche automaticamente
             >
+              <Lock className="h-4 w-4" /> {/* Ícone: Use um ícone de cadeado (Lock). */}
               Área Restrita
             </a>
           </nav>
