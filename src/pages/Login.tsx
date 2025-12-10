@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,13 +10,15 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     if (password === "admin123") {
-      navigate("/cozinha");
+      const from = location.state?.from?.pathname || "/admin";
+      navigate(from, { replace: true });
     } else {
       setError("Senha incorreta");
     }
@@ -63,12 +65,12 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center">
-            <a
-              href="/"
+            <Link
+              to="/"
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               ← Voltar ao site
-            </a>
+            </Link>
           </div>
         </div>
       </div>

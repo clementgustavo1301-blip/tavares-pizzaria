@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
@@ -43,6 +43,8 @@ export const ProtectedRoute = () => {
         };
     }, []);
 
+    const location = useLocation();
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -53,7 +55,7 @@ export const ProtectedRoute = () => {
     }
 
     if (!session) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     return <Outlet />;

@@ -1,4 +1,5 @@
 import { ShoppingCart, Menu, X, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useOrder } from "@/context/OrderContext";
 import { useState, useEffect } from "react";
@@ -51,35 +52,35 @@ export function Header({ onCartClick }: HeaderProps) {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <a
-              href="#cardapio"
+              href="/#cardapio" // Keep hash link as is but prefix with /
               className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
             >
               Cardápio
             </a>
             <a
-              href="#sobre"
+              href="/#sobre"
               className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
             >
               Sobre Nós
             </a>
             <a
-              href="#contato"
+              href="/#contato"
               className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
             >
               Contato
             </a>
-            <a
-              href="/meus-pedidos"
+            <Link
+              to="/meus-pedidos"
               className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
             >
               Meus Pedidos
-            </a>
-            <a
-              href="/login"
+            </Link>
+            <Link
+              to="/login"
               className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
             >
               Área Restrita
-            </a>
+            </Link>
           </nav>
 
           <div className="flex items-center gap-3">
