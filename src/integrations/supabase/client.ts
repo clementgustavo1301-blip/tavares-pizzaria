@@ -15,6 +15,10 @@ export interface DbOrder {
   total_amount: number;
   status: OrderStatus;
   payment_method: string;
+  display_id?: string | null;
+  preparation_started_at?: string | null;
+  ready_at?: string | null;
+  delivered_at?: string | null;
 }
 
 export interface DbOrderItem {

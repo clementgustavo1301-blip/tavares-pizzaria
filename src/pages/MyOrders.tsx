@@ -21,6 +21,7 @@ interface OrderItem {
 interface Order {
   id: string;
   created_at: string;
+  display_id?: string;
   customer_name: string;
   total_amount: number;
   status: string;
@@ -47,7 +48,7 @@ const MyOrders = () => {
 
   const handleSearch = async () => {
     const cleanedCPF = cleanCPF(cpf);
-    
+
     if (cleanedCPF.length !== 11) {
       toast.error("Por favor, insira um CPF válido.");
       return;
@@ -169,17 +170,17 @@ const MyOrders = () => {
             ) : (
               orders.map((order) => {
                 const status = statusConfig[order.status] || statusConfig.pending;
-                
+
                 return (
-                  <Card 
-                    key={order.id} 
+                  <Card
+                    key={order.id}
                     className="cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => navigate(`/pedido/${order.id}`)}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base font-medium">
-                          Pedido #{order.id.slice(0, 8)}
+                          {order.display_id || `Pedido #${order.id.slice(0, 8)}`}
                         </CardTitle>
                         <Badge className={`${status.color} text-white flex items-center gap-1`}>
                           {status.icon}

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Save, Loader2, Plus, Trash2, Database } from "lucide-react";
+import { Save, Loader2, Plus, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +43,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getPizzaImageByName } from "@/utils/imageHelper";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CrustManager } from "@/components/CrustManager";
 
 interface MenuItem {
   id: string;
@@ -50,6 +52,7 @@ interface MenuItem {
   price: number;
   image_url: string | null;
   available: boolean;
+  category: string;
 }
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=100&h=100&fit=crop";
@@ -66,7 +69,7 @@ export default function MenuManager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [newItem, setNewItem] = useState({
     name: "",
-    category: "Tradicionais",
+    category: "Pizzas Tradicionais",
     price: "",
     description: "",
     image_url: "",
@@ -80,13 +83,13 @@ export default function MenuManager() {
     try {
       const { data, error } = await supabase
         .from("menu_items")
-        .select("id, name, price, image_url, available")
+        .select("id, name, price, image_url, available, category")
         .order("name");
 
       if (error) throw error;
 
       setItems(data || []);
-      // Initialize edited prices with current values
+
       const prices: Record<string, string> = {};
       data?.forEach((item) => {
         prices[item.id] = item.price.toFixed(2).replace(".", ",");
@@ -101,7 +104,6 @@ export default function MenuManager() {
   };
 
   const handlePriceChange = (id: string, value: string) => {
-    // Allow only numbers and comma
     const formatted = value.replace(/[^0-9,]/g, "");
     setEditedPrices((prev) => ({ ...prev, [id]: formatted }));
   };
@@ -170,7 +172,6 @@ export default function MenuManager() {
       return;
     }
 
-    // Handle price input allowing comma
     const priceNum = parseFloat(newItem.price.replace(",", "."));
     if (isNaN(priceNum) || priceNum <= 0) {
       toast.error("Preço inválido");
@@ -184,7 +185,6 @@ export default function MenuManager() {
         finalImageUrl = getPizzaImageByName(newItem.name);
       }
 
-      // Check if image is just empty whitespace
       if (typeof finalImageUrl === 'string' && finalImageUrl.trim() === '') {
         finalImageUrl = getPizzaImageByName(newItem.name);
       }
@@ -219,7 +219,7 @@ export default function MenuManager() {
       setIsAddModalOpen(false);
       setNewItem({
         name: "",
-        category: "Tradicionais",
+        category: "Pizzas Tradicionais",
         price: "",
         description: "",
         image_url: "",
@@ -241,7 +241,6 @@ export default function MenuManager() {
 
     setIsDeleting(true);
     try {
-      console.log("Attempting to delete item:", itemToDelete.id);
       const { error } = await supabase
         .from("menu_items")
         .delete()
@@ -256,7 +255,6 @@ export default function MenuManager() {
       toast.success(`"${itemToDelete.name}" foi removido do cardápio.`);
       setItemToDelete(null);
     } catch (err: any) {
-      console.error("Full error object:", err);
       if (err.code === "401" || err.status === 401) {
         toast.error("Erro de Permissão: Você precisa configurar as Policies do Supabase para permitir excluir itens.");
       } else {
@@ -267,24 +265,51 @@ export default function MenuManager() {
     }
   };
 
-  const handleSeedCrusts = async () => {
-    try {
-      const crusts = [
-        { name: "Requeijão", price: 0 },
-        { name: "Chocolate", price: 6 },
-        { name: "Cheddar", price: 6 },
-        { name: "Catupiry", price: 6 },
-      ];
 
-      const { error } = await supabase.from("crust_options").insert(crusts);
 
-      if (error) throw error;
-      toast.success("Opções de borda adicionadas com sucesso!");
-    } catch (error) {
-      console.error("Error seeding crusts:", error);
-      toast.error("Erro ao popular bordas (Verifique se a tabela existe)");
-    }
+  // Group items by category
+  const localizedCategories: Record<string, string> = {
+    "Pizzas Tradicionais": "Pizzas Tradicionais",
+    "Pizzas Especiais": "Pizzas Especiais",
+    "Bebidas": "Bebidas",
+    "Sobremesas": "Sobremesas",
+    "Tradicionais": "Pizzas Tradicionais", // Fallback for old data
+    "Doces": "Pizzas Doces", // Fallback for old data
+    "Especiais": "Pizzas Especiais" // Fallback for old data
   };
+
+  // Get unique categories from items or use default order
+  const getCategories = () => {
+    const defaultOrder = ["Pizzas Tradicionais", "Pizzas Especiais", "Pizzas Doces", "Bebidas", "Sobremesas"];
+
+    // Normalize item categories to display names
+    const mappedCategories = new Set(items.map(i => {
+      const rawCat = i.category || "Pizzas Tradicionais"; // Default fallback
+      return localizedCategories[rawCat] || rawCat;
+    }));
+
+    // Return sorted categories that exist in the items
+    const sorted = defaultOrder.filter(cat => mappedCategories.has(cat));
+
+    // Add any other categories that were found but not in defaultOrder
+    Array.from(mappedCategories).forEach(cat => {
+      if (!sorted.includes(cat)) {
+        sorted.push(cat);
+      }
+    });
+
+    return sorted;
+  };
+
+  const getItemsByCategory = (category: string) => {
+    return items.filter(item => {
+      const itemRaw = item.category || "Pizzas Tradicionais";
+      const itemMapped = localizedCategories[itemRaw] || itemRaw;
+      return itemMapped === category;
+    });
+  };
+
+  const categories = getCategories();
 
   return (
     <AdminLayout>
@@ -295,316 +320,339 @@ export default function MenuManager() {
               Gerenciar Cardápio
             </h1>
             <p className="text-muted-foreground">
-              Atualize preços e disponibilidade dos itens do cardápio.
+              Gerencie seus produtos e opções do sistema.
             </p>
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleSeedCrusts} variant="outline" title="Popular tabela de bordas">
-              <Database className="w-4 h-4 mr-2" />
-              Popular Bordas
-            </Button>
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Pizza
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Adicionar Nova Pizza</DialogTitle>
-                  <DialogDescription>
-                    Preencha os dados abaixo para adicionar um novo item ao cardápio.
-                  </DialogDescription>
-                </DialogHeader>
+        <Tabs defaultValue="menu" className="w-full space-y-6">
+          <TabsList>
+            <TabsTrigger value="menu">Cardápio</TabsTrigger>
+            <TabsTrigger value="crusts">Bordas</TabsTrigger>
+          </TabsList>
 
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name">Nome *</Label>
-                    <Input
-                      id="name"
-                      value={newItem.name}
-                      onChange={(e) =>
-                        setNewItem({ ...newItem, name: e.target.value })
-                      }
-                      placeholder="Ex: Calabresa"
-                    />
-                  </div>
+          <TabsContent value="menu" className="space-y-8">
+            <div className="flex justify-end">
 
-                  <div className="grid grid-cols-2 gap-4">
+              <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Item
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Novo Item</DialogTitle>
+                    <DialogDescription>
+                      Preencha os dados abaixo para adicionar um novo item ao cardápio.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="category">Categoria</Label>
-                      <Select
-                        value={newItem.category}
-                        onValueChange={(val) =>
-                          setNewItem({ ...newItem, category: val })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Tradicionais">
-                            Tradicionais
-                          </SelectItem>
-                          <SelectItem value="Doces">Doces</SelectItem>
-                          <SelectItem value="Especiais">Especiais</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="price">Preço (R$) *</Label>
+                      <Label htmlFor="name">Nome *</Label>
                       <Input
-                        id="price"
-                        value={newItem.price}
+                        id="name"
+                        value={newItem.name}
                         onChange={(e) =>
-                          setNewItem({ ...newItem, price: e.target.value })
+                          setNewItem({ ...newItem, name: e.target.value })
                         }
-                        placeholder="0,00"
-                        type="number" // Changing to number as requested, but keeping text handling in logic
+                        placeholder="Ex: Calabresa"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="description">Descrição (Ingredientes)</Label>
-                    <Textarea
-                      id="description"
-                      value={newItem.description}
-                      onChange={(e) =>
-                        setNewItem({ ...newItem, description: e.target.value })
-                      }
-                      placeholder="Ex: Molho de tomate, mussarela..."
-                    />
-                  </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="category">Categoria</Label>
+                        <Select
+                          value={newItem.category}
+                          onValueChange={(val) =>
+                            setNewItem({ ...newItem, category: val })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Pizzas Tradicionais">Pizzas Tradicionais</SelectItem>
+                            <SelectItem value="Pizzas Especiais">Pizzas Especiais</SelectItem>
+                            <SelectItem value="Bebidas">Bebidas</SelectItem>
+                            <SelectItem value="Sobremesas">Sobremesas</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="image_url">URL da Imagem</Label>
-                    <Input
-                      id="image_url"
-                      value={newItem.image_url}
-                      onChange={(e) =>
-                        setNewItem({ ...newItem, image_url: e.target.value })
-                      }
-                      placeholder="https://..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Deixe em branco para usar imagem automática.
-                    </p>
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddModalOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleAddItem} disabled={isAdding}>
-                    {isAdding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Salvar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : items.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">
-              Nenhum item no cardápio.
-            </p>
-          ) : (
-            <>
-              {/* Mobile View - Cards */}
-              <div className="md:hidden space-y-4">
-                {items.map((item) => (
-                  <div key={item.id} className={`bg-card rounded-xl border border-border p-4 shadow-sm ${!item.available ? "opacity-60" : ""}`}>
-                    <div className="flex gap-4 mb-4">
-                      <img
-                        src={item.image_url || PLACEHOLDER_IMAGE}
-                        alt={item.name}
-                        className={`w-20 h-20 object-cover rounded-lg ${!item.available ? "grayscale" : ""}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <h3 className="font-bold text-lg truncate pr-2">{item.name}</h3>
-                          <div className="flex items-center gap-2">
-                            {/* Actions Row */}
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 hover:text-primary"
-                              onClick={() => handleSavePrice(item)}
-                              disabled={savingId === item.id}
-                            >
-                              {savingId === item.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Save className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                              onClick={() => setItemToDelete(item)}
-                              disabled={savingId === item.id || togglingId === item.id}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 mt-2">
-                          <div className="flex-1">
-                            <Label className="text-xs text-muted-foreground mb-1 block">Preço</Label>
-                            <div className="relative">
-                              <span className="absolute left-2 top-2.5 text-xs text-muted-foreground">R$</span>
-                              <Input
-                                value={editedPrices[item.id] || ""}
-                                onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                className="pl-7 h-9 text-sm"
-                                placeholder="0,00"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Label className="text-xs text-muted-foreground">Disponibilidade</Label>
-                            <Switch
-                              checked={item.available}
-                              onCheckedChange={() => handleToggleAvailability(item)}
-                              disabled={togglingId === item.id}
-                            />
-                          </div>
-                        </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="price">Preço (R$) *</Label>
+                        <Input
+                          id="price"
+                          value={newItem.price}
+                          onChange={(e) =>
+                            setNewItem({ ...newItem, price: e.target.value })
+                          }
+                          placeholder="0,00"
+                          type="number"
+                        />
                       </div>
                     </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="description">Descrição (Ingredientes)</Label>
+                      <Textarea
+                        id="description"
+                        value={newItem.description}
+                        onChange={(e) =>
+                          setNewItem({ ...newItem, description: e.target.value })
+                        }
+                        placeholder="Ex: Molho de tomate, mussarela..."
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="image_url">URL da Imagem</Label>
+                      <Input
+                        id="image_url"
+                        value={newItem.image_url}
+                        onChange={(e) =>
+                          setNewItem({ ...newItem, image_url: e.target.value })
+                        }
+                        placeholder="https://..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Deixe em branco para usar imagem automática.
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Desktop View - Table */}
-              <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-20">Imagem</TableHead>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-36">Preço (R$)</TableHead>
-                      <TableHead className="w-32 text-center">Disponível</TableHead>
-                      <TableHead className="w-32 text-center">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item) => (
-                      <TableRow
-                        key={item.id}
-                        className={!item.available ? "opacity-60 bg-muted/30" : ""}
-                      >
-                        <TableCell>
-                          <img
-                            src={item.image_url || PLACEHOLDER_IMAGE}
-                            alt={item.name}
-                            className={`w-14 h-14 object-cover rounded-lg ${!item.available ? "grayscale" : ""
-                              }`}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">R$</span>
-                            <Input
-                              value={editedPrices[item.id] || ""}
-                              onChange={(e) =>
-                                handlePriceChange(item.id, e.target.value)
-                              }
-                              className="w-24"
-                              placeholder="0,00"
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Switch
-                              checked={item.available}
-                              onCheckedChange={() => handleToggleAvailability(item)}
-                              disabled={togglingId === item.id}
-                            />
-                            <span className="text-sm text-muted-foreground w-20">
-                              {item.available ? "Disponível" : "Esgotado"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSavePrice(item)}
-                              disabled={savingId === item.id}
-                            >
-                              {savingId === item.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Save className="h-4 w-4 mr-1" />
-                                  Salvar
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setItemToDelete(item)}
-                              disabled={savingId === item.id || togglingId === item.id}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddModalOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleAddItem} disabled={isAdding}>
+                      {isAdding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Salvar
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-          <AlertDialog
-            open={!!itemToDelete}
-            onOpenChange={(open) => !open && setItemToDelete(null)}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta ação não pode ser desfeita. Isso excluirá permanentemente a
-                  pizza "{itemToDelete?.name}" do cardápio.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDeleteItem();
-                  }}
-                  disabled={isDeleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Excluir
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : items.length === 0 ? (
+              <p className="text-muted-foreground text-center py-12">
+                Nenhum item no cardápio.
+              </p>
+            ) : (
+              <div className="space-y-8">
+                {categories.map((category) => {
+                  const categoryItems = getItemsByCategory(category);
+                  if (categoryItems.length === 0) return null;
+
+                  return (
+                    <div key={category} className="space-y-4">
+                      <h2 className="text-2xl font-serif font-bold text-foreground border-b pb-2">
+                        {category}
+                      </h2>
+
+                      {/* Mobile View - Cards */}
+                      <div className="md:hidden space-y-4">
+                        {categoryItems.map((item) => (
+                          <div key={item.id} className={`bg-card rounded-xl border border-border p-4 shadow-sm ${!item.available ? "opacity-60" : ""}`}>
+                            <div className="flex gap-4 mb-4">
+                              <img
+                                src={item.image_url || PLACEHOLDER_IMAGE}
+                                alt={item.name}
+                                className={`w-20 h-20 object-cover rounded-lg ${!item.available ? "grayscale" : ""}`}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between">
+                                  <h3 className="font-bold text-lg truncate pr-2">{item.name}</h3>
+                                  <div className="flex items-center gap-2">
+                                    {/* Actions Row */}
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8 hover:text-primary"
+                                      onClick={() => handleSavePrice(item)}
+                                      disabled={savingId === item.id}
+                                    >
+                                      {savingId === item.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Save className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                      onClick={() => setItemToDelete(item)}
+                                      disabled={savingId === item.id || togglingId === item.id}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 mt-2">
+                                  <div className="flex-1">
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Preço</Label>
+                                    <div className="relative">
+                                      <span className="absolute left-2 top-2.5 text-xs text-muted-foreground">R$</span>
+                                      <Input
+                                        value={editedPrices[item.id] || ""}
+                                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                        className="pl-7 h-9 text-sm"
+                                        placeholder="0,00"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <Label className="text-xs text-muted-foreground">Disponibilidade</Label>
+                                    <Switch
+                                      checked={item.available}
+                                      onCheckedChange={() => handleToggleAvailability(item)}
+                                      disabled={togglingId === item.id}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop View - Table */}
+                      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="w-20">Imagem</TableHead>
+                              <TableHead>Nome</TableHead>
+                              <TableHead className="w-36">Preço (R$)</TableHead>
+                              <TableHead className="w-32 text-center">Disponível</TableHead>
+                              <TableHead className="w-32 text-center">Ação</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {categoryItems.map((item) => (
+                              <TableRow
+                                key={item.id}
+                                className={!item.available ? "opacity-60 bg-muted/30" : ""}
+                              >
+                                <TableCell>
+                                  <img
+                                    src={item.image_url || PLACEHOLDER_IMAGE}
+                                    alt={item.name}
+                                    className={`w-14 h-14 object-cover rounded-lg ${!item.available ? "grayscale" : ""
+                                      }`}
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">{item.name}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">R$</span>
+                                    <Input
+                                      value={editedPrices[item.id] || ""}
+                                      onChange={(e) =>
+                                        handlePriceChange(item.id, e.target.value)
+                                      }
+                                      className="w-24"
+                                      placeholder="0,00"
+                                    />
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Switch
+                                      checked={item.available}
+                                      onCheckedChange={() => handleToggleAvailability(item)}
+                                      disabled={togglingId === item.id}
+                                    />
+                                    <span className="text-sm text-muted-foreground w-20">
+                                      {item.available ? "Disponível" : "Esgotado"}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleSavePrice(item)}
+                                      disabled={savingId === item.id}
+                                    >
+                                      {savingId === item.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Save className="h-4 w-4 mr-1" />
+                                          Salvar
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => setItemToDelete(item)}
+                                      disabled={savingId === item.id || togglingId === item.id}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="crusts">
+            <CrustManager />
+          </TabsContent>
+        </Tabs>
+
+        <AlertDialog
+          open={!!itemToDelete}
+          onOpenChange={(open) => !open && setItemToDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Isso excluirá permanentemente a
+                pizza "{itemToDelete?.name}" do cardápio.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeleteItem();
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </AdminLayout>
   );
 }

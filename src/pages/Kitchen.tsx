@@ -23,7 +23,7 @@ const OrderCard = ({ order, onAdvance, showAdvance }: { order: Order; onAdvance:
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
         <CardTitle className="text-base font-mono font-bold text-primary">
-          #{order.id.slice(0, 8)}
+          {order.displayId || `#${order.id.slice(0, 8)}`}
         </CardTitle>
         <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
           {new Date(order.createdAt).toLocaleTimeString("pt-BR", {
@@ -106,7 +106,7 @@ const Kitchen = () => {
     if (nextStatus) {
       try {
         await updateOrderStatus(order.id, nextStatus);
-        toast.success(`Pedido ${order.id.slice(0, 8)} atualizado!`, {
+        toast.success(`Pedido ${order.displayId || order.id.slice(0, 8)} atualizado!`, {
           description: `Novo status: ${statusConfig[nextStatus].label}`,
         });
       } catch (error) {

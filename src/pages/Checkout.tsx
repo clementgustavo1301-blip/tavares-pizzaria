@@ -18,29 +18,30 @@ const Checkout = () => {
   const [name, setName] = useState("");
   const [cpf, setCpf] = useState("");
   const [cep, setCep] = useState("");
-  const [street, setStreet] = useState("");
+
+  // Refined Address States
+  const [address, setAddress] = useState("");
   const [number, setNumber] = useState("");
   const [complement, setComplement] = useState("");
-  const [neighborhood, setNeighborhood] = useState("");
-  const [city, setCity] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState("pix");
   const [deliveryType, setDeliveryType] = useState<"delivery" | "pickup">("delivery");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingCEP, setIsFetchingCEP] = useState(false);
 
-  const PICKUP_ADDRESS = "Rua Delfino Leite, 164 - Alto de São Manoel";
+  const PICKUP_ADDRESS = "R. Delmiro Rocha, 268 - Alto de São Manoel, Mossoró - RN, 59625-170";
 
   // Auto-fetch address when CEP is complete
   useEffect(() => {
     const cleanedCEP = cleanCEP(cep);
-    
+
     if (cleanedCEP.length === 8) {
       setIsFetchingCEP(true);
       fetchAddressByCEP(cleanedCEP).then((data) => {
         if (data) {
-          setStreet(data.logradouro);
-          setNeighborhood(data.bairro);
-          setCity(`${data.localidade} - ${data.uf}`);
+          // Format address without number
+          const formattedAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+          setAddress(formattedAddress);
           toast.success("Endereço encontrado!");
         } else {
           toast.error("CEP não encontrado. Preencha manualmente.");
@@ -79,29 +80,36 @@ const Checkout = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const cleanedCPF = cpf.replace(/\D/g, "");
-    
+
     // Validation depends on delivery type
     if (!name.trim() || cleanedCPF.length !== 11) {
       toast.error("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
-    if (deliveryType === "delivery" && (!street.trim() || !number.trim() || !neighborhood.trim() || !city.trim())) {
-      toast.error("Por favor, preencha o endereço completo para entrega.");
-      return;
+    if (deliveryType === "delivery") {
+      if (!address.trim() || !number.trim()) {
+        toast.error("Por favor, preencha o endereço e o número.");
+        return;
+      }
     }
 
-    // Build address based on delivery type
-    const fullAddress = deliveryType === "delivery" 
-      ? `${street}, ${number}${complement ? `, ${complement}` : ""} - ${neighborhood}, ${city}`
-      : "Retirada na Loja";
+    // Construct final address string
+    let finalAddress = "Retirada na Loja";
+
+    if (deliveryType === "delivery") {
+      finalAddress = `${address}, Nº ${number}`;
+      if (complement.trim()) {
+        finalAddress += ` - ${complement}`;
+      }
+    }
 
     setIsSubmitting(true);
-    
+
     try {
-      const order = await placeOrder(name, fullAddress, paymentMethod, cleanedCPF, deliveryType);
+      const order = await placeOrder(name, finalAddress, paymentMethod, cleanedCPF, deliveryType);
       toast.success("Pedido realizado com sucesso!", {
         description: `Pedido #${order.id.slice(0, 8)}`,
       });
@@ -160,7 +168,9 @@ const Checkout = () => {
                 <span className="text-muted-foreground">
                   {deliveryType === "delivery" ? "Entrega" : "Retirada"}
                 </span>
-                <span className="text-secondary font-medium">Grátis</span>
+                <span className="font-medium">
+                  {deliveryType === "pickup" ? "Grátis" : "A combinar"}
+                </span>
               </div>
               <Separator />
               <div className="flex justify-between items-center">
@@ -214,12 +224,11 @@ const Checkout = () => {
                     onValueChange={(value) => setDeliveryType(value as "delivery" | "pickup")}
                     className="grid grid-cols-2 gap-3"
                   >
-                    <div 
-                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        deliveryType === "delivery" 
-                          ? "border-primary bg-primary/10" 
-                          : "border-border hover:border-primary/50"
-                      }`}
+                    <div
+                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${deliveryType === "delivery"
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                        }`}
                       onClick={() => setDeliveryType("delivery")}
                     >
                       <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
@@ -228,12 +237,11 @@ const Checkout = () => {
                         Entrega
                       </Label>
                     </div>
-                    <div 
-                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        deliveryType === "pickup" 
-                          ? "border-primary bg-primary/10" 
-                          : "border-border hover:border-primary/50"
-                      }`}
+                    <div
+                      className={`flex items-center justify-center gap-2 p-4 border-2 rounded-lg cursor-pointer transition-all ${deliveryType === "pickup"
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                        }`}
                       onClick={() => setDeliveryType("pickup")}
                     >
                       <RadioGroupItem value="pickup" id="pickup" className="sr-only" />
@@ -249,16 +257,15 @@ const Checkout = () => {
                 {deliveryType === "delivery" ? (
                   <div className="space-y-4">
                     <h3 className="font-medium">Endereço de Entrega</h3>
-                    
+
                     <div className="space-y-2">
-                      <Label htmlFor="cep">CEP *</Label>
+                      <Label htmlFor="cep">CEP</Label>
                       <div className="relative">
                         <Input
                           id="cep"
                           placeholder="00000-000"
                           value={cep}
                           onChange={handleCEPChange}
-                          required
                         />
                         {isFetchingCEP && (
                           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
@@ -267,18 +274,21 @@ const Checkout = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="street">Rua *</Label>
+                      {/* Main Address Field - Simplified (No Textarea) */}
+                      <Label htmlFor="address">Endereço (Rua, Bairro, Cidade)</Label>
                       <Input
-                        id="street"
-                        placeholder="Nome da rua"
-                        value={street}
-                        onChange={(e) => setStreet(e.target.value)}
+                        id="address"
+                        placeholder="Rua das Flores, Centro..."
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
                         required
+                        className="bg-muted/30"
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+                    {/* Number and Complement Side-by-Side */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-1 space-y-2">
                         <Label htmlFor="number">Número *</Label>
                         <Input
                           id="number"
@@ -288,37 +298,15 @@ const Checkout = () => {
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="complement">Complemento</Label>
+                      <div className="col-span-2 space-y-2">
+                        <Label htmlFor="complement">Complemento <span className="text-muted-foreground font-normal">(Opcional)</span></Label>
                         <Input
                           id="complement"
-                          placeholder="Apto, bloco..."
+                          placeholder="Apto, Bloco, Ao lado de..."
                           value={complement}
                           onChange={(e) => setComplement(e.target.value)}
                         />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="neighborhood">Bairro *</Label>
-                      <Input
-                        id="neighborhood"
-                        placeholder="Bairro"
-                        value={neighborhood}
-                        onChange={(e) => setNeighborhood(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="city">Cidade *</Label>
-                      <Input
-                        id="city"
-                        placeholder="Cidade - UF"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        required
-                      />
                     </div>
                   </div>
                 ) : (

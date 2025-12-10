@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileDown, TrendingUp, Pizza, DollarSign, Calendar } from "lucide-react";
+import { FileDown, TrendingUp, Pizza, DollarSign, Calendar, Clock, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import AdminLayout from "@/components/AdminLayout";
 import { supabase, DbOrder, DbOrderItem } from "@/integrations/supabase/client";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { format, differenceInMinutes, parseISO, getDay, startOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface FlavorStat {
   name: string;
@@ -28,6 +30,16 @@ const statusLabels: Record<string, string> = {
   ready: "Pronto",
   delivered: "Entregue",
 };
+
+const weekDays = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
 
 const Reports = () => {
   const [orders, setOrders] = useState<DbOrder[]>([]);
@@ -52,9 +64,22 @@ const Reports = () => {
     };
 
     fetchData();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('public:orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Calculate stats
+  // --- Calculations ---
+
   const totalRevenue = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
   const todayRevenue = orders
@@ -76,7 +101,110 @@ const Reports = () => {
     })
     .reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
-  // Calculate top flavors
+  // Stats for Intelligence
+  const getIntelligenceData = () => {
+    try {
+      const monthlyRevenue: Record<string, number> = {};
+      const dayOfWeekCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+      let totalPrepTime = 0;
+      let countPrepTime = 0;
+      let totalOrderTime = 0;
+      let countOrderTime = 0;
+
+      orders.forEach(order => {
+        if (!order.created_at) return;
+
+        const date = parseISO(order.created_at);
+        const monthKey = format(date, "MMM/yyyy", { locale: ptBR });
+
+        // Monthly Rev
+        monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + (order.total_amount || 0);
+
+        // Day of Week
+        const day = getDay(date);
+        dayOfWeekCounts[day] = (dayOfWeekCounts[day] || 0) + 1;
+
+        // Avg Prep Time Calculation (Refined)
+        // Check performed outside loop for robustness as requested
+        // Keeping loop for other stats
+
+        // Avg Order Time (Delivered/Ready - Created)
+        const endTime = order.delivered_at || order.ready_at;
+        if (endTime) {
+          try {
+            const diff = differenceInMinutes(parseISO(endTime), parseISO(order.created_at));
+            if (diff >= 0 && diff < 1440) { // Filter outliers (> 24h)
+              totalOrderTime += diff;
+              countOrderTime++;
+            }
+          } catch (e) { console.warn(e); }
+        }
+      });
+
+      // Top Month
+      const sortedMonths = Object.entries(monthlyRevenue).sort((a, b) => b[1] - a[1]);
+      const topMonth = sortedMonths.length > 0 ? sortedMonths[0][0] : "N/A";
+
+      // Sort months strictly for chart (last 6 months)
+      const last6Months = Object.entries(monthlyRevenue)
+        .map(([key, val]) => {
+          return { key, val };
+        })
+        .sort((a, b) => 0)
+        .slice(0, 6);
+
+      // Peak & Weak Days
+      const sortedDays = Object.entries(dayOfWeekCounts).sort((a, b) => b[1] - a[1]);
+      const peakDay = sortedDays.length > 0 ? Number(sortedDays[0][0]) : 0;
+      const weakDay = sortedDays.length > 0 ? Number(sortedDays[sortedDays.length - 1][0]) : 0;
+
+      // Explicit Avg Prep Time Calculation requested by user
+      // Filter: Finished orders (ready/delivered) AND valid timestamps
+      const validPrepOrders = orders.filter(o =>
+        (o.status === 'ready' || o.status === 'delivered') &&
+        o.preparation_started_at &&
+        o.ready_at
+      );
+      console.log("Pedidos Válidos para Média:", validPrepOrders);
+
+      let calcAvgPrepTime = -1;
+      if (validPrepOrders.length > 0) {
+        const totalDiff = validPrepOrders.reduce((acc, o) => {
+          // @ts-ignore
+          const start = new Date(o.preparation_started_at).getTime();
+          // @ts-ignore
+          const end = new Date(o.ready_at).getTime();
+          return acc + ((end - start) / 60000);
+        }, 0);
+        calcAvgPrepTime = Math.round(totalDiff / validPrepOrders.length);
+      }
+
+      return {
+        topMonth,
+        peakDayName: weekDays[peakDay] || weekDays[0],
+        weakDayName: weekDays[weakDay] || weekDays[0],
+        avgPrepTime: calcAvgPrepTime, // Use the new calculated value
+        avgOrderTime: countOrderTime > 0 ? Math.round(totalOrderTime / countOrderTime) : -1,
+        monthlyRevenue, // For charts
+        last6Months // Simplified
+      };
+    } catch (error) {
+      console.error("Intelligence Error:", error);
+      return {
+        topMonth: "N/A",
+        peakDayName: "N/A",
+        weakDayName: "N/A",
+        avgPrepTime: -1,
+        avgOrderTime: -1,
+        monthlyRevenue: {},
+        last6Months: []
+      };
+    }
+  };
+
+  const intelligence = getIntelligenceData();
+
+  // Top Flavors calculation
   const flavorStats: FlavorStat[] = orderItems.reduce((acc: FlavorStat[], item) => {
     const existing = acc.find((f) => f.name === item.pizza_name);
     if (existing) {
@@ -97,27 +225,144 @@ const Reports = () => {
   // Generate PDF
   const generatePDF = () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
 
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(192, 64, 0); // Terra Cotta color
-    doc.text("Tavares Pizzaria", 105, 20, { align: "center" });
+    // --- Header ---
+    doc.setFillColor(192, 64, 0); // Primary Brand Color
+    doc.rect(0, 0, pageWidth, 40, "F");
 
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Tavares Pizzaria", 14, 25);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Relatório de Inteligência - ${format(new Date(), "dd/MM/yyyy")}`, 14, 34);
+
+    // --- Intelligence Summary ---
+    let currentY = 55;
+
+    doc.setTextColor(60, 60, 60);
     doc.setFontSize(14);
-    doc.setTextColor(62, 39, 35); // Coffee color
-    doc.text("Relatório Gerencial", 105, 30, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.text("Insights de Performance", 14, currentY);
 
+    currentY += 10;
     doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 105, 38, { align: "center" });
+    doc.setFont("helvetica", "normal");
+
+    // Suggestion Box
+    doc.setDrawColor(192, 64, 0);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(14, currentY, pageWidth - 28, 25, 3, 3);
+
+    doc.setTextColor(192, 64, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text("SUGESTÃO ESTRATÉGICA:", 18, currentY + 7);
+
+    doc.setTextColor(60);
+    doc.setFont("helvetica", "normal");
+    const suggestionText = `Notamos que ${intelligence.weakDayName} é o dia com menor movimento. Sugerimos criar promoções específicas (ex: "Terça em Dobro" ou "Entrega Grátis") para este dia a fim de aumentar o faturamento. O seu pico de vendas ocorre na ${intelligence.peakDayName}.`;
+    doc.text(doc.splitTextToSize(suggestionText, pageWidth - 40), 18, currentY + 14);
+
+    currentY += 35;
+
+    // Stats Grid
+    const statBoxWidth = (pageWidth - 36) / 3;
+
+    // Stat 1: Top Month
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, currentY, statBoxWidth, 20, "F");
+    doc.setFontSize(8);
+    doc.text("MÊS RECORD DE FATURAMENTO", 18, currentY + 6);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(intelligence.topMonth, 18, currentY + 15);
+
+    // Stat 2: Avg Prep Time
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14 + statBoxWidth + 4, currentY, statBoxWidth, 20, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("TEMPO MÉDIO DE PREPARO", 18 + statBoxWidth + 4, currentY + 6);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(intelligence.avgPrepTime !== -1 ? `${intelligence.avgPrepTime} min` : "Dados insuf.", 18 + statBoxWidth + 4, currentY + 15);
+
+    // Stat 3: Avg Order Time
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14 + (statBoxWidth + 4) * 2, currentY, statBoxWidth, 20, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("TEMPO TOTAL (PEDIDO -> ENTREGA)", 18 + (statBoxWidth + 4) * 2, currentY + 6);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(intelligence.avgOrderTime !== -1 ? `${intelligence.avgOrderTime} min` : "Dados insuf.", 18 + (statBoxWidth + 4) * 2, currentY + 15);
+
+    currentY += 30;
+
+    // --- Chart Section ---
+    doc.setFontSize(14);
+    doc.setTextColor(60);
+    doc.text("Evolução do Faturamento (Últimos Meses)", 14, currentY);
+    currentY += 10;
+
+    // Draw Chart
+    const chartHeight = 40;
+    const chartWidth = pageWidth - 28;
+    const chartBottomY = currentY + chartHeight;
+
+    // Draw Axis
+    doc.setDrawColor(200);
+    doc.line(14, chartBottomY, 14 + chartWidth, chartBottomY); // X Axis
+    doc.line(14, currentY, 14, chartBottomY); // Y Axis
+
+    // Prepare data for last 6 months (chronological) based on orders
+    // Re-calculating specifically for last 6 months sorted
+    const today = new Date();
+    const last6MonthsData = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = format(d, "MMM/yyyy", { locale: ptBR });
+      const revenue = intelligence.monthlyRevenue[key] || 0;
+      last6MonthsData.push({ label: key.split('/')[0], value: revenue });
+    }
+
+    const maxVal = Math.max(...last6MonthsData.map(d => d.value), 100); // Avoid div by zero
+    const barWidth = (chartWidth / 6) - 4;
+
+    last6MonthsData.forEach((data, index) => {
+      const barHeight = (data.value / maxVal) * (chartHeight - 5);
+      const x = 14 + 2 + (index * (chartWidth / 6));
+      const y = chartBottomY - barHeight;
+
+      doc.setFillColor(192, 64, 0);
+      if (data.value > 0) {
+        doc.rect(x, y, barWidth, barHeight, "F");
+        // Value Label
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(`R$${Math.round(data.value)}`, x, y - 2);
+      }
+
+      // X Axis Label
+      doc.setFontSize(9);
+      doc.setTextColor(60);
+      doc.text(data.label, x + (barWidth / 2), chartBottomY + 5, { align: "center" });
+    });
+
+    currentY += chartHeight + 20;
+
+    // --- Tables ---
 
     // Revenue Summary
     doc.setFontSize(12);
-    doc.setTextColor(62, 39, 35);
-    doc.text("Resumo Financeiro", 14, 55);
+    doc.setTextColor(60);
+    doc.text("Resumo Financeiro Detalhado", 14, currentY);
 
     autoTable(doc, {
-      startY: 60,
+      startY: currentY + 5,
       head: [["Período", "Valor"]],
       body: [
         ["Hoje", `R$ ${todayRevenue.toFixed(2).replace(".", ",")}`],
@@ -129,8 +374,8 @@ const Reports = () => {
     });
 
     // Top Flavors
-    const finalY1 = (doc as any).lastAutoTable?.finalY || 100;
-    doc.text("Vendas por Sabor", 14, finalY1 + 15);
+    const finalY1 = (doc as any).lastAutoTable?.finalY || currentY + 40;
+    doc.text("Top 5 Sabores Mais Vendidos", 14, finalY1 + 15);
 
     autoTable(doc, {
       startY: finalY1 + 20,
@@ -145,14 +390,14 @@ const Reports = () => {
     });
 
     // Order History
-    const finalY2 = (doc as any).lastAutoTable?.finalY || 150;
-    doc.text("Histórico de Pedidos (Últimos 20)", 14, finalY2 + 15);
+    const finalY2 = (doc as any).lastAutoTable?.finalY || finalY1 + 50;
+    doc.text("Histórico Recente de Pedidos", 14, finalY2 + 15);
 
     autoTable(doc, {
       startY: finalY2 + 20,
       head: [["Data", "Cliente", "Status", "Valor"]],
       body: orders.slice(0, 20).map((order) => [
-        new Date(order.created_at).toLocaleDateString("pt-BR"),
+        format(new Date(order.created_at), "dd/MM/yyyy HH:mm"),
         order.customer_name,
         statusLabels[order.status] || order.status,
         `R$ ${(order.total_amount || 0).toFixed(2).replace(".", ",")}`,
@@ -162,14 +407,14 @@ const Reports = () => {
     });
 
     // Save
-    doc.save("relatorio-tavares-pizzaria.pdf");
+    doc.save("relatorio-inteligente-tavares.pdf");
   };
 
   if (isLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-full">
-          <div className="animate-pulse text-muted-foreground">Carregando...</div>
+          <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
         </div>
       </AdminLayout>
     );
@@ -181,13 +426,74 @@ const Reports = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-foreground">Relatórios</h1>
-            <p className="text-muted-foreground">Análise de vendas e desempenho</p>
+            <h1 className="text-2xl font-serif font-bold text-foreground">Relatório Inteligente</h1>
+            <p className="text-muted-foreground">Análise detalhada e insights para seu negócio</p>
           </div>
-          <Button onClick={generatePDF} className="gap-2">
+          <Button onClick={generatePDF} className="gap-2 bg-primary hover:bg-primary/90">
             <FileDown className="h-4 w-4" />
-            Baixar Relatório PDF
+            Baixar PDF com Inteligência
           </Button>
+        </div>
+
+        {/* Intelligence Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Dia de Pico
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">
+                {intelligence.peakDayName}
+              </div>
+              <p className="text-xs text-muted-foreground">Maior volume de vendas</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Dia de <span className="text-red-400">Oportunidade</span>
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-red-400 rotate-180" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">
+                {intelligence.weakDayName}
+              </div>
+              <p className="text-xs text-muted-foreground">Menor movimento (Criar promoções)</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Tempo Médio de Preparo
+              </CardTitle>
+              <Clock className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">
+                {intelligence.avgPrepTime !== -1 ? `${intelligence.avgPrepTime} min` : "--"}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Tempo Total (Pedido)
+              </CardTitle>
+              <Activity className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">
+                {intelligence.avgOrderTime !== -1 ? `${intelligence.avgOrderTime} min` : "--"}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Revenue Cards */}
@@ -294,6 +600,7 @@ const Reports = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Pedido</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Pagamento</TableHead>
@@ -304,8 +611,11 @@ const Reports = () => {
                   <TableBody>
                     {orders.slice(0, 20).map((order) => (
                       <TableRow key={order.id}>
+                        <TableCell className="font-mono text-xs">
+                          {order.display_id || `#${order.id.slice(0, 8)}`}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          {new Date(order.created_at).toLocaleDateString("pt-BR")}
+                          {format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}
                         </TableCell>
                         <TableCell className="font-medium whitespace-nowrap">
                           {order.customer_name}

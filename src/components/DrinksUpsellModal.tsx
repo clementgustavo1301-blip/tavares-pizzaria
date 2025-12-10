@@ -1,4 +1,5 @@
-{ Dport ialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Pizza } from "@/data/pizzas"; // Using shared type
@@ -22,8 +23,7 @@ export function DrinksUpsellModal({ open, onOpenChange, onContinue }: DrinksUpse
     useEffect(() => {
         if (open) {
             fetchDrinks();
-        }import { useEffect, useState } from "react";
-im
+        }
     }, [open]);
 
     const fetchDrinks = async () => {

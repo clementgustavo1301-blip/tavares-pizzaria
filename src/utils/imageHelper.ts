@@ -22,7 +22,7 @@ const pizzaImageMap: { keywords: string[]; url: string }[] = [
   },
   {
     keywords: ["portuguesa"],
-    url: "https://images.unsplash.com/photo-1528137894217-fa3a0275670a?w=800&q=60",
+    url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=60",
   },
   {
     keywords: ["frango"],
@@ -30,7 +30,7 @@ const pizzaImageMap: { keywords: string[]; url: string }[] = [
   },
   {
     keywords: ["queijo", "mussarela", "quatro queijos"],
-    url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=60",
+    url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=60",
   },
   {
     keywords: ["nordestina", "carne", "bacon"],
@@ -38,7 +38,7 @@ const pizzaImageMap: { keywords: string[]; url: string }[] = [
   },
   {
     keywords: ["chocolate", "doce", "brigadeiro", "nutella", "morango"],
-    url: "https://images.unsplash.com/photo-1606349370958-228724c5f440?w=800&q=60",
+    url: "https://images.unsplash.com/photo-1563729760302-dfb0331243f6?w=800&q=60",
   },
 ];
 

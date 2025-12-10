@@ -8,10 +8,12 @@ export interface CartItem {
   pizza: Pizza;
   quantity: number;
   observation?: string;
+  crust?: string;
 }
 
 export interface Order {
   id: string;
+  displayId?: string;
   items: CartItem[];
   total: number;
   status: OrderStatus;
@@ -19,6 +21,9 @@ export interface Order {
   customerAddress: string;
   paymentMethod: string;
   createdAt: Date;
+  preparationStartAt?: Date;
+  readyAt?: Date;
+  deliveredAt?: Date;
 }
 
 interface OrderContextType {
@@ -26,7 +31,7 @@ interface OrderContextType {
   orders: Order[];
   currentOrder: Order | null;
   isLoading: boolean;
-  addToCart: (pizza: Pizza, observation?: string) => void;
+  addToCart: (pizza: Pizza, observation?: string, crust?: string) => void;
   removeFromCart: (pizzaId: string) => void;
   updateQuantity: (pizzaId: string, quantity: number) => void;
   clearCart: () => void;
@@ -98,12 +103,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
         return {
           id: dbOrder.id,
+          displayId: dbOrder.display_id || undefined,
           customerName: dbOrder.customer_name,
           customerAddress: dbOrder.address || "",
           total: dbOrder.total_amount,
           status: statusFromDb[dbOrder.status as DbOrderStatus] || "aguardando",
           paymentMethod: dbOrder.payment_method,
           createdAt: new Date(dbOrder.created_at),
+          preparationStartAt: dbOrder.preparation_started_at ? new Date(dbOrder.preparation_started_at) : undefined,
+          readyAt: dbOrder.ready_at ? new Date(dbOrder.ready_at) : undefined,
+          deliveredAt: dbOrder.delivered_at ? new Date(dbOrder.delivered_at) : undefined,
           items: orderItems.map((item: DbOrderItem) => ({
             pizza: {
               id: item.id,
@@ -155,21 +164,25 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchOrders]);
 
-  const addToCart = useCallback((pizza: Pizza, observation?: string) => {
+  const addToCart = useCallback((pizza: Pizza, observation?: string, crust?: string) => {
     setCart((prev) => {
-      // For items with observations, always add as new item
-      if (observation) {
-        return [...prev, { pizza, quantity: 1, observation }];
-      }
-      const existing = prev.find((item) => item.pizza.id === pizza.id && !item.observation);
+      // Create a unique key for grouping (id + obs + crust)
+      const isSameItem = (item: CartItem) =>
+        item.pizza.id === pizza.id &&
+        item.observation === observation &&
+        item.crust === crust;
+
+      const existing = prev.find(isSameItem);
+
       if (existing) {
         return prev.map((item) =>
-          item.pizza.id === pizza.id && !item.observation
+          isSameItem(item)
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { pizza, quantity: 1 }];
+
+      return [...prev, { pizza, quantity: 1, observation, crust }];
     });
   }, []);
 
@@ -228,13 +241,22 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       }
 
       // Insert order items with correct types
-      const orderItems = cart.map((item) => ({
-        order_id: orderData.id,
-        pizza_name: String(item.pizza.name),
-        quantity: Number(item.quantity) || 1,
-        price: Number(item.pizza.price),
-        observations: item.observation ? String(item.observation) : null,
-      }));
+      const orderItems = cart.map((item) => {
+        let finalObservation = item.observation || "";
+        if (item.crust) {
+          finalObservation = finalObservation
+            ? `Borda: ${item.crust}. ${finalObservation}`
+            : `Borda: ${item.crust}`;
+        }
+
+        return {
+          order_id: orderData.id,
+          pizza_name: String(item.pizza.name),
+          quantity: Number(item.quantity) || 1,
+          price: Number(item.pizza.price),
+          observations: finalObservation || null,
+        };
+      });
 
       console.log("Items Payload:", orderItems);
 
@@ -249,6 +271,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
       const order: Order = {
         id: orderData.id,
+        displayId: orderData.display_id || undefined,
         items: [...cart],
         total: cartTotal,
         status: "aguardando",
@@ -270,9 +293,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   );
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+    const now = new Date().toISOString();
+    const updates: any = { status: statusToDb[status] };
+
+    // Refactored logic to include timestamps based on status
+    if (status === "preparando") {
+      updates.preparation_started_at = now;
+    } else if (status === "saiu") {
+      updates.ready_at = now;
+    } else if (status === "entregue") {
+      updates.delivered_at = now;
+    }
+
     const { error } = await supabase
       .from("orders")
-      .update({ status: statusToDb[status] })
+      .update(updates)
       .eq("id", orderId);
 
     if (error) {
@@ -282,13 +317,27 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
     // Update local state immediately for responsiveness
     setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId ? { ...order, status } : order
-      )
+      prev.map((order) => {
+        if (order.id === orderId) {
+          const updatedOrder = { ...order, status };
+          if (status === "preparando") updatedOrder.preparationStartAt = new Date();
+          if (status === "saiu") updatedOrder.readyAt = new Date();
+          if (status === "entregue") updatedOrder.deliveredAt = new Date();
+          return updatedOrder;
+        }
+        return order;
+      })
     );
-    setCurrentOrder((prev) =>
-      prev?.id === orderId ? { ...prev, status } : prev
-    );
+    setCurrentOrder((prev) => {
+      if (prev?.id === orderId) {
+        const updatedOrder = { ...prev, status };
+        if (status === "preparando") updatedOrder.preparationStartAt = new Date();
+        if (status === "saiu") updatedOrder.readyAt = new Date();
+        if (status === "entregue") updatedOrder.deliveredAt = new Date();
+        return updatedOrder;
+      }
+      return prev;
+    });
   }, []);
 
   const getOrderById = useCallback(

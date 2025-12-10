@@ -32,13 +32,6 @@ export function Menu() {
     }, {} as Record<string, typeof pizzas>);
   const categoryOrder = ["Tradicionais", "Doces"];
   const sortedCategories = Object.keys(groupedPizzas).sort((a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b));
-  const handleAddHalfHalf = (pizza: Pizza, observation?: string) => {
-    addToCart(pizza, observation);
-    toast.success("Pizza Meio a Meio adicionada!", {
-      description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
-      duration: 2000
-    });
-  };
   return <section id="cardapio" className="py-16 md:py-20 gradient-paper bg-paper-texture">
     <div className="container mx-auto px-4">
       <div className="text-center mb-12 md:mb-16">
@@ -68,7 +61,7 @@ export function Menu() {
             <h3 className="text-2xl font-serif font-bold text-foreground mb-2">
               Pizza Meio a Meio
             </h3>
-            <p className="text-muted-foreground mb-4">Monte sua pizza com dois sabores diferentes! O valor será a metade de cada pizza.</p>
+            <p className="text-muted-foreground mb-4">Monte sua pizza com dois sabores diferentes! O valor será a média aritmética dos dois sabores.</p>
             <Button onClick={() => setHalfHalfOpen(true)} variant="hero" size="lg" className="gap-2">
               <Slice className="h-5 w-5" />
               Montar Meio a Meio
@@ -109,6 +102,6 @@ export function Menu() {
     </div>
 
     {/* Half & Half Modal */}
-    <HalfHalfModal open={halfHalfOpen} onOpenChange={setHalfHalfOpen} pizzas={pizzas} onAddToCart={handleAddHalfHalf} />
+    <HalfHalfModal open={halfHalfOpen} onOpenChange={setHalfHalfOpen} pizzas={pizzas} />
   </section>;
 }

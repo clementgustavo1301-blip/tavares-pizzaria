@@ -61,7 +61,7 @@ const OrderTracking = () => {
             Acompanhe seu Pedido
           </h1>
           <p className="text-muted-foreground mt-2">
-            Pedido: <span className="font-mono font-bold text-primary text-lg">{order.id}</span>
+            Pedido: <span className="font-mono font-bold text-primary text-lg">{order.displayId || `#${order.id.slice(0, 8)}`}</span>
           </p>
         </div>
 
@@ -150,8 +150,8 @@ const OrderTracking = () => {
               <div className="bg-muted/50 p-3 rounded-lg">
                 <p className="text-muted-foreground text-xs mb-1">Pagamento</p>
                 <p className="font-semibold capitalize">
-                  {order.paymentMethod === "pix" ? "PIX" : 
-                   order.paymentMethod === "credit" ? "Cartão" : "Dinheiro"}
+                  {order.paymentMethod === "pix" ? "PIX" :
+                    order.paymentMethod === "credit" ? "Cartão" : "Dinheiro"}
                 </p>
               </div>
             </div>

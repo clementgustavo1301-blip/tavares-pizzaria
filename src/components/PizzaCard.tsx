@@ -1,105 +1,192 @@
-import { useState } from "react";
-import { Plus, Leaf, Ban } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Minus, ShoppingCart, Info, Loader2, Leaf, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Pizza } from "@/hooks/useMenuItems";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useOrder } from "@/context/OrderContext";
+import { Pizza } from "@/hooks/useMenuItems";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PizzaCardProps {
   pizza: Pizza;
 }
 
+interface CrustOption {
+  id: string;
+  name: string;
+  price: number;
+  is_active: boolean;
+}
+
 export function PizzaCard({ pizza }: PizzaCardProps) {
   const { addToCart } = useOrder();
-  const [observation, setObservation] = useState("");
-  const isAvailable = pizza.available !== false;
+  const [selectedBorda, setSelectedBorda] = useState<string>("");
+  const [observation, setObservation] = useState<string>("");
+  const [crustOptions, setCrustOptions] = useState<CrustOption[]>([]);
+  const [loadingCrusts, setLoadingCrusts] = useState(false);
+
+  // Check if the item is a pizza based on category
+  const isPizza = (pizza.category || "").toLowerCase().includes("pizza") ||
+    (pizza.category || "").toLowerCase().includes("tradicionais") ||
+    (pizza.category || "").toLowerCase().includes("especiais") ||
+    (pizza.category || "").toLowerCase().includes("doces");
+
+  useEffect(() => {
+    if (isPizza) {
+      fetchCrustOptions();
+    }
+  }, [isPizza]);
+
+  const fetchCrustOptions = async () => {
+    setLoadingCrusts(true);
+    try {
+      const { data, error } = await supabase
+        .from("crust_options")
+        .select("*")
+        .eq("is_active", true)
+        .order("price", { ascending: true });
+
+      if (error) throw error;
+      setCrustOptions(data || []);
+    } catch (error) {
+      console.error("Error fetching crusts:", error);
+    } finally {
+      setLoadingCrusts(false);
+    }
+  };
+
+  const selectedCrustPrice = crustOptions.find(c => c.name === selectedBorda)?.price || 0;
+  const totalPrice = pizza.price + selectedCrustPrice;
 
   const handleAddToCart = () => {
-    if (!isAvailable) return;
-    addToCart(pizza, observation.trim() || undefined);
-    toast.success("Pizza adicionada!", {
-      description: `${pizza.name} - R$ ${pizza.price.toFixed(2).replace(".", ",")}`,
-      duration: 2000,
+    if (isPizza && !selectedBorda) {
+      toast.error("Selecione uma borda", {
+        description: "Por favor, escolha uma opção de borda para sua pizza.",
+      });
+      return;
+    }
+
+    addToCart(pizza, observation.trim() || undefined, selectedBorda);
+    toast.success("Adicionado ao carrinho!", {
+      description: `${pizza.name}${selectedBorda ? ` com borda ${selectedBorda}` : ""} - R$ ${totalPrice.toFixed(2).replace(".", ",")}`,
     });
+
+    // Reset selection after adding
+    setSelectedBorda("");
     setObservation("");
   };
 
   return (
-    <Card className={`group overflow-hidden card-rustic transition-all duration-300 animate-fade-in ${isAvailable ? "hover:shadow-elevated hover:-translate-y-1" : "opacity-75"}`}>
-      <div className="relative overflow-hidden">
+    <Card className="h-full flex flex-col overflow-hidden border-2 border-transparent hover:border-primary/10 hover:shadow-elevated transition-all duration-300 group bg-card">
+      <div className="relative overflow-hidden aspect-[4/3]">
         <img
           src={pizza.image}
           alt={pizza.name}
-          className={`w-full h-52 object-cover transition-transform duration-500 ${isAvailable ? "group-hover:scale-105" : "grayscale"}`}
-          loading="lazy"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        
-        {/* Sold Out Badge */}
-        {!isAvailable && (
-          <div className="absolute inset-0 flex items-center justify-center bg-foreground/40">
-            <Badge className="bg-destructive text-destructive-foreground gap-1 text-lg px-4 py-2 shadow-lg">
-              <Ban className="h-5 w-5" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+          <Button
+            className="translate-y-4 group-hover:translate-y-0 transition-transform duration-300"
+            onClick={handleAddToCart}
+          >
+            Adicionar Rápido
+          </Button>
+        </div>
+        {!pizza.available && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
+            <span className="text-xl font-bold uppercase tracking-widest text-destructive rotate-[-15deg] border-4 border-destructive px-4 py-2 rounded-lg">
               Esgotado
-            </Badge>
+            </span>
           </div>
         )}
-        
-        {pizza.isVegetarian && isAvailable && (
-          <Badge className="absolute top-3 right-3 bg-secondary text-secondary-foreground gap-1 shadow-md">
-            <Leaf className="h-3 w-3" />
-            Vegetariana
-          </Badge>
-        )}
-        <div className="absolute bottom-3 right-3 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg font-bold shadow-lg">
-          R$ {pizza.price.toFixed(2).replace(".", ",")}
-        </div>
       </div>
-      <CardContent className="p-5">
-        <h3 className="text-xl font-serif font-bold text-foreground mb-2">
-          {pizza.name}
-        </h3>
-        
-        <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
+
+      <CardHeader className="p-4 pb-0">
+        <div className="flex justify-between items-start gap-2">
+          <h3 className="font-serif font-bold text-xl leading-tight text-foreground line-clamp-2">
+            {pizza.name}
+          </h3>
+          <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 shrink-0">
+            R$ {pizza.price.toFixed(2).replace(".", ",")}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="p-4 flex-grow space-y-4">
+        <p className="text-muted-foreground text-sm line-clamp-3">
           {pizza.description}
         </p>
-        
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-          <span className="font-semibold text-foreground/70">Ingredientes:</span>{" "}
-          {pizza.ingredients.join(", ")}
-        </p>
 
-        {isAvailable && (
-          <Textarea
-            placeholder="Observações: Ex: Tirar cebola, pouco orégano..."
-            value={observation}
-            onChange={(e) => setObservation(e.target.value)}
-            className="mb-3 text-sm min-h-[60px] resize-none"
-          />
+        {isPizza && (
+          <div className="space-y-2 pt-2">
+            <label className="text-xs font-semibold uppercase text-muted-foreground">
+              Borda
+            </label>
+            <Select value={selectedBorda} onValueChange={setSelectedBorda}>
+              <SelectTrigger className="w-full text-sm h-9">
+                <SelectValue placeholder={loadingCrusts ? "Carregando..." : "Selecione a borda"} />
+              </SelectTrigger>
+              <SelectContent>
+                {crustOptions.map((crust) => (
+                  <SelectItem key={crust.id} value={crust.name}>
+                    <div className="flex justify-between w-full gap-2 items-center">
+                      <span>{crust.name}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {crust.price === 0 ? "Grátis" : `+ R$ ${crust.price.toFixed(2).replace(".", ",")}`}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
+        <div className="space-y-2">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">
+            Observações (Opcional)
+          </label>
+          <Textarea
+            placeholder="Ex: Tirar cebola, sem orégano, caprichar no molho..."
+            className="min-h-[60px] resize-none text-sm"
+            rows={2}
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+          />
+        </div>
+      </CardContent>
+
+      <CardFooter className="p-4 pt-0">
         <Button
+          className="w-full font-semibold shadow-sm hover:shadow-md transition-all h-10"
           onClick={handleAddToCart}
-          className="w-full group/btn"
-          variant="default"
-          disabled={!isAvailable}
+          disabled={!pizza.available}
         >
-          {isAvailable ? (
-            <>
-              <Plus className="h-4 w-4 mr-2 group-hover/btn:rotate-90 transition-transform duration-200" />
-              Adicionar ao Carrinho
-            </>
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          {isPizza ? (
+            selectedBorda
+              ? `Adicionar (R$ ${totalPrice.toFixed(2).replace(".", ",")})`
+              : "Selecione uma borda"
           ) : (
-            <>
-              <Ban className="h-4 w-4 mr-2" />
-              Indisponível
-            </>
+            "Adicionar ao Carrinho"
           )}
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }
