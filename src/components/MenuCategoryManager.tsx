@@ -40,7 +40,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit, Loader2, Upload, CloudUpload } from "lucide-react";
 import { getPizzaImageByName } from "@/utils/imageHelper";
 
 interface MenuItem {
@@ -73,6 +73,40 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
     });
     const [saving, setSaving] = useState(false);
     const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setUploading(true);
+            if (!event.target.files || event.target.files.length === 0) {
+                return;
+            }
+            const file = event.target.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('menu-images') // Assumes bucket exists
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data } = supabase.storage
+                .from('menu-images')
+                .getPublicUrl(filePath);
+
+            setFormData({ ...formData, image_url: data.publicUrl });
+            toast.success("Imagem enviada com sucesso!");
+        } catch (error: any) {
+            console.error("Upload error:", error);
+            toast.error("Erro ao enviar imagem. Verifique se o bucket 'menu-images' existe no Supabase.");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     useEffect(() => {
         fetchItems();
@@ -384,16 +418,47 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="image_url">URL da Imagem</Label>
+                            <Label htmlFor="image_url">Imagem do Produto</Label>
+
+                            <div className="flex items-center gap-4">
+                                {formData.image_url && (
+                                    <div className="relative w-16 h-16 rounded-md overflow-hidden border">
+                                        <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                                <div className="grid w-full max-w-sm items-center gap-1.5">
+                                    <Label htmlFor="picture" className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 py-2 rounded-md inline-flex items-center justify-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
+                                        {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CloudUpload className="w-4 h-4 mr-2" />}
+                                        {uploading ? "Enviando..." : "Carregar Foto do Dispositivo"}
+                                        <Input
+                                            id="picture"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleImageUpload}
+                                            disabled={uploading}
+                                        />
+                                    </Label>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <span className="absolute inset-0 flex items-center">
+                                    <span className="w-full border-t" />
+                                </span>
+                                <span className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-background px-2 text-muted-foreground">
+                                        Ou use uma URL externa
+                                    </span>
+                                </span>
+                            </div>
+
                             <Input
                                 id="image_url"
                                 value={formData.image_url}
                                 onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                                 placeholder="https://..."
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Deixe em branco para tentar imagem automática.
-                            </p>
                         </div>
                     </div>
                     <DialogFooter>

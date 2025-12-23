@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const AdminSidebar = () => {
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const handleLogout = () => {
     navigate("/");

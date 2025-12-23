@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'rejected';
 
 export interface DbOrder {
   id: string;
@@ -16,6 +16,7 @@ export interface DbOrder {
   status: OrderStatus;
   payment_method: string;
   display_id?: string | null;
+  rejection_reason?: string | null;
   preparation_started_at?: string | null;
   ready_at?: string | null;
   delivered_at?: string | null;

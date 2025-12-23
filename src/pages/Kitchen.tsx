@@ -1,4 +1,5 @@
-import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users, Bike } from "lucide-react";
+import { useState } from "react";
+import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users, Bike, XCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,15 @@ import { useOrder, Order, OrderStatus } from "@/context/OrderContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import AdminLayout from "@/components/AdminLayout";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType; bgColor: string; textColor: string }> = {
@@ -14,11 +23,24 @@ const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType
   preparando: { label: "No Forno", icon: ChefHat, bgColor: "bg-primary", textColor: "text-primary-foreground" },
   saiu: { label: "Pronto / Saiu", icon: Truck, bgColor: "bg-secondary", textColor: "text-secondary-foreground" },
   entregue: { label: "Concluído", icon: CheckCircle, bgColor: "bg-muted", textColor: "text-muted-foreground" },
+  recusado: { label: "Recusado", icon: XCircle, bgColor: "bg-destructive/10", textColor: "text-destructive" },
 };
 
 const columns: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
 
-const OrderCard = ({ order, onAdvance, showAdvance }: { order: Order; onAdvance: () => void; showAdvance: boolean }) => (
+const OrderCard = ({
+  order,
+  onAdvance,
+  onReject,
+  showAdvance,
+  showReject
+}: {
+  order: Order;
+  onAdvance: () => void;
+  onReject?: () => void;
+  showAdvance: boolean;
+  showReject?: boolean;
+}) => (
   <Card className="animate-fade-in card-rustic hover:shadow-elevated transition-all duration-200 hover:-translate-y-0.5">
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
@@ -64,26 +86,41 @@ const OrderCard = ({ order, onAdvance, showAdvance }: { order: Order; onAdvance:
           R$ {order.total.toFixed(2).replace(".", ",")}
         </span>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                order.customerAddress + " Mossoro RN"
-              )}`;
-              const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName
-                }\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
-              window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-            }}
-            className="gap-1 border-primary/20 hover:bg-primary/5"
-            title="Enviar para Entregador"
-          >
-            <Bike className="h-3 w-3" />
-          </Button>
+          {showReject && onReject && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={onReject}
+              className="px-2"
+              title="Recusar Pedido"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          )}
+
+          {order.status !== 'aguardando' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  order.customerAddress + " Mossoro RN"
+                )}`;
+                const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName
+                  }\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+              }}
+              className="gap-1 border-primary/20 hover:bg-primary/5"
+              title="Enviar para Entregador"
+            >
+              <Bike className="h-4 w-4" />
+            </Button>
+          )}
+
           {showAdvance && (
             <Button size="sm" onClick={onAdvance} className="gap-1">
-              Avançar
-              <ArrowRight className="h-3 w-3" />
+              {order.status === 'aguardando' ? "Aceitar" : "Avançar"}
+              {order.status === 'aguardando' ? <Check className="h-3 w-3" /> : <ArrowRight className="h-3 w-3" />}
             </Button>
           )}
         </div>
@@ -94,11 +131,17 @@ const OrderCard = ({ order, onAdvance, showAdvance }: { order: Order; onAdvance:
 
 const Kitchen = () => {
   const { orders, updateOrderStatus, refreshOrders, isLoading } = useOrder();
+  const [rejectingOrder, setRejectingOrder] = useState<Order | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const getNextStatus = (current: OrderStatus): OrderStatus | null => {
     const flow: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
     const currentIndex = flow.indexOf(current);
-    return currentIndex < flow.length - 1 ? flow[currentIndex + 1] : null;
+
+    // Se for o último do fluxo normal, não tem próximo
+    if (currentIndex === -1 || currentIndex >= flow.length - 1) return null;
+
+    return flow[currentIndex + 1];
   };
 
   const handleAdvanceStatus = async (order: Order) => {
@@ -115,7 +158,31 @@ const Kitchen = () => {
     }
   };
 
+  const handleRejectClick = (order: Order) => {
+    setRejectingOrder(order);
+    setRejectionReason("");
+  };
+
+  const confirmRejection = async () => {
+    if (!rejectingOrder) return;
+    if (!rejectionReason.trim()) {
+      toast.error("A justificativa é obrigatória para recusar o pedido.");
+      return;
+    }
+
+    try {
+      await updateOrderStatus(rejectingOrder.id, "recusado", rejectionReason);
+      toast.success("Pedido recusado com sucesso.");
+      setRejectingOrder(null);
+    } catch (error) {
+      toast.error("Erro ao recusar pedido.");
+    }
+  };
+
   const activeOrders = orders.filter((o) => {
+    // Esconder pedidos recusados da lista principal
+    if (o.status === "recusado") return false;
+
     if (o.status !== "entregue") return true;
 
     // For completed orders, only show today's orders
@@ -198,7 +265,7 @@ const Kitchen = () => {
                   {columns.map((status) => {
                     const config = statusConfig[status];
                     const Icon = config.icon;
-                    const columnOrders = orders.filter((o) => o.status === status);
+                    const columnOrders = activeOrders.filter((o) => o.status === status);
 
                     return (
                       <TabsContent key={status} value={status} className="space-y-4">
@@ -223,7 +290,9 @@ const Kitchen = () => {
                             key={order.id}
                             order={order}
                             onAdvance={() => handleAdvanceStatus(order)}
+                            onReject={() => handleRejectClick(order)}
                             showAdvance={!!getNextStatus(order.status)}
+                            showReject={order.status === 'aguardando'}
                           />
                         ))}
                       </TabsContent>
@@ -237,7 +306,7 @@ const Kitchen = () => {
                 {columns.map((status) => {
                   const config = statusConfig[status];
                   const Icon = config.icon;
-                  const columnOrders = orders.filter((o) => o.status === status);
+                  const columnOrders = activeOrders.filter((o) => o.status === status);
 
                   return (
                     <div key={status} className="space-y-4">
@@ -264,7 +333,9 @@ const Kitchen = () => {
                             key={order.id}
                             order={order}
                             onAdvance={() => handleAdvanceStatus(order)}
+                            onReject={() => handleRejectClick(order)}
                             showAdvance={!!getNextStatus(order.status)}
+                            showReject={order.status === 'aguardando'}
                           />
                         ))}
                       </div>
@@ -275,8 +346,43 @@ const Kitchen = () => {
             </>
           )}
         </main>
-      </div >
-    </AdminLayout >
+      </div>
+
+      <Dialog open={!!rejectingOrder} onOpenChange={(open) => !open && setRejectingOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recusar Pedido</DialogTitle>
+            <DialogDescription>
+              Por favor, informe o motivo do cancelamento para o cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Ex: Estamos sem massa no momento..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+            {rejectionReason.trim() === "" && (
+              <p className="text-xs text-destructive mt-2">* A justificativa é obrigatória.</p>
+            )}
+
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectingOrder(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRejection}
+              disabled={!rejectionReason.trim()}
+            >
+              Confirmar Recusa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
   );
 };
 

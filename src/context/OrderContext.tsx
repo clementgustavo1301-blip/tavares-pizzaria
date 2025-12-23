@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, Rea
 import { Pizza } from "@/data/pizzas";
 import { supabase, DbOrder, DbOrderItem, OrderStatus as DbOrderStatus } from "@/integrations/supabase/client";
 
-export type OrderStatus = "aguardando" | "preparando" | "saiu" | "entregue";
+export type OrderStatus = "aguardando" | "preparando" | "saiu" | "entregue" | "recusado";
 
 export interface CartItem {
   pizza: Pizza;
@@ -17,6 +17,7 @@ export interface Order {
   items: CartItem[];
   total: number;
   status: OrderStatus;
+  rejectionReason?: string;
   customerName: string;
   customerAddress: string;
   paymentMethod: string;
@@ -36,7 +37,7 @@ interface OrderContextType {
   updateQuantity: (pizzaId: string, quantity: number) => void;
   clearCart: () => void;
   placeOrder: (customerName: string, customerAddress: string, paymentMethod: string, cpf: string, deliveryType: "delivery" | "pickup") => Promise<Order>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: OrderStatus, reason?: string) => Promise<void>;
   getOrderById: (orderId: string) => Order | undefined;
   refreshOrders: () => Promise<void>;
   cartTotal: number;
@@ -51,6 +52,7 @@ const statusToDb: Record<OrderStatus, DbOrderStatus> = {
   preparando: "preparing",
   saiu: "ready",
   entregue: "delivered",
+  recusado: "rejected",
 };
 
 const statusFromDb: Record<DbOrderStatus, OrderStatus> = {
@@ -58,6 +60,7 @@ const statusFromDb: Record<DbOrderStatus, OrderStatus> = {
   preparing: "preparando",
   ready: "saiu",
   delivered: "entregue",
+  rejected: "recusado",
 };
 
 export function OrderProvider({ children }: { children: ReactNode }) {
@@ -108,6 +111,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           customerAddress: dbOrder.address || "",
           total: dbOrder.total_amount,
           status: statusFromDb[dbOrder.status as DbOrderStatus] || "aguardando",
+          rejectionReason: dbOrder.rejection_reason || undefined,
           paymentMethod: dbOrder.payment_method,
           createdAt: new Date(dbOrder.created_at),
           preparationStartAt: dbOrder.preparation_started_at ? new Date(dbOrder.preparation_started_at) : undefined,
@@ -292,7 +296,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     [cart, cartTotal, clearCart, fetchOrders]
   );
 
-  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus, reason?: string) => {
     const now = new Date().toISOString();
     const updates: any = { status: statusToDb[status] };
 
@@ -303,6 +307,9 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       updates.ready_at = now;
     } else if (status === "entregue") {
       updates.delivered_at = now;
+    } else if (status === "recusado") {
+      if (!reason) throw new Error("Justificativa obrigatória para recusar pedido");
+      updates.rejection_reason = reason;
     }
 
     const { error } = await supabase
@@ -319,7 +326,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id === orderId) {
-          const updatedOrder = { ...order, status };
+          const updatedOrder = { ...order, status, rejectionReason: reason };
           if (status === "preparando") updatedOrder.preparationStartAt = new Date();
           if (status === "saiu") updatedOrder.readyAt = new Date();
           if (status === "entregue") updatedOrder.deliveredAt = new Date();
@@ -330,7 +337,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     );
     setCurrentOrder((prev) => {
       if (prev?.id === orderId) {
-        const updatedOrder = { ...prev, status };
+        const updatedOrder = { ...prev, status, rejectionReason: reason };
         if (status === "preparando") updatedOrder.preparationStartAt = new Date();
         if (status === "saiu") updatedOrder.readyAt = new Date();
         if (status === "entregue") updatedOrder.deliveredAt = new Date();

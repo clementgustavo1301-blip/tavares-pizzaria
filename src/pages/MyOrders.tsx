@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, Package, Clock, ChefHat, Truck } from "lucide-react";
+import { ArrowLeft, Search, Package, Clock, ChefHat, Truck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCPF, cleanCPF } from "@/utils/formatters";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface OrderItem {
   id: string;
@@ -27,12 +28,15 @@ interface Order {
   status: string;
   payment_method: string;
   items: OrderItem[];
+  rejection_reason?: string;
 }
 
-const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  pending: { label: "Aguardando", icon: <Clock className="h-4 w-4" />, color: "bg-amber-500" },
-  preparing: { label: "Preparando", icon: <ChefHat className="h-4 w-4" />, color: "bg-blue-500" },
-  ready: { label: "Saiu para Entrega", icon: <Truck className="h-4 w-4" />, color: "bg-purple-500" },
+const statusConfig: Record<string, { label: string; icon: React.ReactNode; color: string; badge: string }> = {
+  pending: { label: "Aguardando", icon: <Clock className="h-4 w-4" />, color: "bg-amber-500", badge: "default" },
+  preparing: { label: "Preparando", icon: <ChefHat className="h-4 w-4" />, color: "bg-blue-500", badge: "default" },
+  ready: { label: "Saiu para Entrega", icon: <Truck className="h-4 w-4" />, color: "bg-purple-500", badge: "default" },
+  rejected: { label: "Cancelado", icon: <XCircle className="h-4 w-4" />, color: "bg-destructive", badge: "destructive" },
+  recusado: { label: "Cancelado", icon: <XCircle className="h-4 w-4" />, color: "bg-destructive", badge: "destructive" },
 };
 
 const MyOrders = () => {
@@ -170,11 +174,15 @@ const MyOrders = () => {
             ) : (
               orders.map((order) => {
                 const status = statusConfig[order.status] || statusConfig.pending;
+                const isRejected = order.status === 'rejected' || order.status === 'recusado';
 
                 return (
                   <Card
                     key={order.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    className={cn(
+                      "cursor-pointer hover:shadow-md transition-shadow",
+                      isRejected ? "border-red-200 bg-red-50/50" : ""
+                    )}
                     onClick={() => navigate(`/pedido/${order.id}`)}
                   >
                     <CardHeader className="pb-3">
@@ -182,9 +190,9 @@ const MyOrders = () => {
                         <CardTitle className="text-base font-medium">
                           {order.display_id || `Pedido #${order.id.slice(0, 8)}`}
                         </CardTitle>
-                        <Badge className={`${status.color} text-white flex items-center gap-1`}>
+                        <Badge variant={isRejected ? "destructive" : "default"} className={cn("flex items-center gap-1", !isRejected && status.color)}>
                           {status.icon}
-                          {status.label}
+                          {isRejected ? "CANCELADO" : status.label}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -196,6 +204,11 @@ const MyOrders = () => {
                           minute: "2-digit",
                         })}
                       </p>
+                      {isRejected && order.rejection_reason && (
+                        <p className="text-sm text-red-600/80 italic mt-1 border-t border-red-100 pt-2">
+                          Motivo do cancelamento: {order.rejection_reason}
+                        </p>
+                      )}
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="space-y-2">

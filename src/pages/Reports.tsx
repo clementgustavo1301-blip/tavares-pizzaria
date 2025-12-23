@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileDown, TrendingUp, Pizza, DollarSign, Calendar, Clock, Activity } from "lucide-react";
+import { FileDown, TrendingUp, Pizza, DollarSign, Calendar, Clock, Activity, AlertCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,8 @@ const statusLabels: Record<string, string> = {
   preparing: "Preparando",
   ready: "Pronto",
   delivered: "Entregue",
+  rejected: "Recusado",
+  recusado: "Recusado",
 };
 
 const weekDays = [
@@ -78,11 +80,42 @@ const Reports = () => {
     };
   }, []);
 
-  // --- Calculations ---
+  // --- Calculations (STRICTLY COMPLETED ORDERS) ---
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+  // Filter only 'delivered' orders for financial and intelligence calculations
+  const completedOrders = orders.filter(order => order.status === 'delivered');
+  const completedOrderIds = new Set(completedOrders.map(o => o.id));
+  const completedOrderItems = orderItems.filter(item => completedOrderIds.has(item.order_id));
 
-  const todayRevenue = orders
+  // --- Calculations (REJECTED ORDERS / LOST REVENUE) ---
+  const rejectedOrders = orders.filter(order => order.status === 'rejected' || order.status === 'recusado' as any);
+  const rejectedOrderIds = new Set(rejectedOrders.map(o => o.id));
+  const rejectedOrderItems = orderItems.filter(item => rejectedOrderIds.has(item.order_id));
+
+  const lostRevenue = rejectedOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+  const rejectedCount = rejectedOrders.length;
+
+  const rejectedFlavorStats: FlavorStat[] = rejectedOrderItems.reduce((acc: FlavorStat[], item) => {
+    const existing = acc.find((f) => f.name === item.pizza_name);
+    if (existing) {
+      existing.quantity += item.quantity;
+      existing.revenue += item.price * item.quantity; // Potential revenue lost
+    } else {
+      acc.push({
+        name: item.pizza_name,
+        quantity: item.quantity,
+        revenue: item.price * item.quantity,
+      });
+    }
+    return acc;
+  }, []);
+
+  const topRejectedFlavors = rejectedFlavorStats.sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+
+
+  const totalRevenue = completedOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+
+  const todayRevenue = completedOrders
     .filter((order) => {
       const orderDate = new Date(order.created_at);
       const today = new Date();
@@ -90,7 +123,7 @@ const Reports = () => {
     })
     .reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
-  const monthRevenue = orders
+  const monthRevenue = completedOrders
     .filter((order) => {
       const orderDate = new Date(order.created_at);
       const now = new Date();
@@ -101,17 +134,15 @@ const Reports = () => {
     })
     .reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
-  // Stats for Intelligence
+  // Stats for Intelligence (USING COMPLETED ORDERS ONLY)
   const getIntelligenceData = () => {
     try {
       const monthlyRevenue: Record<string, number> = {};
       const dayOfWeekCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
-      let totalPrepTime = 0;
-      let countPrepTime = 0;
       let totalOrderTime = 0;
       let countOrderTime = 0;
 
-      orders.forEach(order => {
+      completedOrders.forEach(order => {
         if (!order.created_at) return;
 
         const date = parseISO(order.created_at);
@@ -124,12 +155,8 @@ const Reports = () => {
         const day = getDay(date);
         dayOfWeekCounts[day] = (dayOfWeekCounts[day] || 0) + 1;
 
-        // Avg Prep Time Calculation (Refined)
-        // Check performed outside loop for robustness as requested
-        // Keeping loop for other stats
-
-        // Avg Order Time (Delivered/Ready - Created)
-        const endTime = order.delivered_at || order.ready_at;
+        // Avg Order Time (Delivered - Created)
+        const endTime = order.delivered_at; // Only using delivered_at since we filtered for delivered
         if (endTime) {
           try {
             const diff = differenceInMinutes(parseISO(endTime), parseISO(order.created_at));
@@ -158,14 +185,12 @@ const Reports = () => {
       const peakDay = sortedDays.length > 0 ? Number(sortedDays[0][0]) : 0;
       const weakDay = sortedDays.length > 0 ? Number(sortedDays[sortedDays.length - 1][0]) : 0;
 
-      // Explicit Avg Prep Time Calculation requested by user
+      // Avg Prep Time Calculation (Refined)
       // Filter: Finished orders (ready/delivered) AND valid timestamps
-      const validPrepOrders = orders.filter(o =>
-        (o.status === 'ready' || o.status === 'delivered') &&
+      const validPrepOrders = completedOrders.filter(o =>
         o.preparation_started_at &&
         o.ready_at
       );
-      console.log("Pedidos Válidos para Média:", validPrepOrders);
 
       let calcAvgPrepTime = -1;
       if (validPrepOrders.length > 0) {
@@ -204,8 +229,8 @@ const Reports = () => {
 
   const intelligence = getIntelligenceData();
 
-  // Top Flavors calculation
-  const flavorStats: FlavorStat[] = orderItems.reduce((acc: FlavorStat[], item) => {
+  // Top Flavors calculation (USING COMPLETED ORDERS ITEMS ONLY)
+  const flavorStats: FlavorStat[] = completedOrderItems.reduce((acc: FlavorStat[], item) => {
     const existing = acc.find((f) => f.name === item.pizza_name);
     if (existing) {
       existing.quantity += item.quantity;
@@ -246,7 +271,7 @@ const Reports = () => {
     doc.setTextColor(60, 60, 60);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("Insights de Performance", 14, currentY);
+    doc.text("Insights de Performance (Vendas Concluídas)", 14, currentY);
 
     currentY += 10;
     doc.setFontSize(10);
@@ -319,7 +344,6 @@ const Reports = () => {
     doc.line(14, currentY, 14, chartBottomY); // Y Axis
 
     // Prepare data for last 6 months (chronological) based on orders
-    // Re-calculating specifically for last 6 months sorted
     const today = new Date();
     const last6MonthsData = [];
     for (let i = 5; i >= 0; i--) {
@@ -359,7 +383,7 @@ const Reports = () => {
     // Revenue Summary
     doc.setFontSize(12);
     doc.setTextColor(60);
-    doc.text("Resumo Financeiro Detalhado", 14, currentY);
+    doc.text("Resumo Financeiro Detalhado (Apenas Concluídos)", 14, currentY);
 
     autoTable(doc, {
       startY: currentY + 5,
@@ -389,9 +413,45 @@ const Reports = () => {
       headStyles: { fillColor: [192, 64, 0] },
     });
 
-    // Order History
-    const finalY2 = (doc as any).lastAutoTable?.finalY || finalY1 + 50;
-    doc.text("Histórico Recente de Pedidos", 14, finalY2 + 15);
+    // --- NEW: REJECTED SUMMARY ---
+    const finalYRejected = (doc as any).lastAutoTable?.finalY || finalY1 + 50;
+    doc.setTextColor(185, 28, 28); // Red color for attention
+    doc.text("Relatório de Perdas / Pedidos Recusados", 14, finalYRejected + 15);
+
+    autoTable(doc, {
+      startY: finalYRejected + 20,
+      head: [["Índice", "Valor", "Descrição"]],
+      body: [
+        ["Total Perdido", `R$ ${lostRevenue.toFixed(2).replace(".", ",")}`, "Receita não realizada"], // Fixed type coercion issue
+        ["Qtd. Recusada", `${rejectedCount}`, "Pedidos cancelados"],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [185, 28, 28] }, // Red header
+    });
+
+    // Top REJECTED Flavors
+    const finalYRejectedFlavors = (doc as any).lastAutoTable?.finalY || finalYRejected + 40;
+    doc.setTextColor(60, 60, 60); // Reset color
+    doc.setFontSize(10);
+    doc.text("Top Sabores Recusados (Oportunidade de Melhoria)", 14, finalYRejectedFlavors + 10);
+
+    autoTable(doc, {
+      startY: finalYRejectedFlavors + 15,
+      head: [["Sabor", "Qtd. Recusada", "Perda Estimada"]],
+      body: topRejectedFlavors.map((f) => [
+        f.name,
+        f.quantity.toString(),
+        `R$ ${f.revenue.toFixed(2).replace(".", ",")}`,
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [100, 100, 100] }, // Grey header
+    });
+
+
+    // Order History - SHOWING ALL FOR AUDIT BUT MARKING STATUS
+    const finalY2 = (doc as any).lastAutoTable?.finalY || finalYRejectedFlavors + 50;
+    doc.setFontSize(12);
+    doc.text("Histórico Recente de Pedidos (Todos)", 14, finalY2 + 15);
 
     autoTable(doc, {
       startY: finalY2 + 20,
@@ -541,6 +601,50 @@ const Reports = () => {
           </Card>
         </div>
 
+        {/* --- KPI: LOST REVENUE --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="border-red-200 bg-red-50/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-destructive">
+                Prejuízo Evitado / Vendas Perdidas
+              </CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                R$ {lostRevenue.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Total de {rejectedCount} pedidos recusados/cancelados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-destructive" />
+                Sabores Mais Recusados
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topRejectedFlavors.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">Sem dados de recusa</p>
+              ) : (
+                <div className="space-y-2">
+                  {topRejectedFlavors.map((f, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{f.quantity}x {f.name}</span>
+                      <span className="font-medium text-destructive">- R$ {f.revenue.toFixed(2).replace(".", ",")}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+
         {/* Top Flavors */}
         <Card>
           <CardHeader>
@@ -630,7 +734,9 @@ const Reports = () => {
                                 ? "secondary"
                                 : order.status === "pending"
                                   ? "outline"
-                                  : "default"
+                                  : order.status === "rejected" || order.status === "recusado" as any
+                                    ? "destructive"
+                                    : "default"
                             }
                           >
                             {statusLabels[order.status] || order.status}
