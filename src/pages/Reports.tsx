@@ -482,16 +482,17 @@ const Reports = () => {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-serif font-bold text-foreground">Relatório Inteligente</h1>
-            <p className="text-muted-foreground">Análise detalhada e insights para seu negócio</p>
+            <h1 className="text-xl md:text-2xl font-serif font-bold text-foreground">Relatório Inteligente</h1>
+            <p className="text-xs md:text-sm text-muted-foreground">Análise detalhada e insights para seu negócio</p>
           </div>
-          <Button onClick={generatePDF} className="gap-2 bg-primary hover:bg-primary/90">
+          <Button onClick={generatePDF} className="gap-2 bg-primary hover:bg-primary/90 shrink-0">
             <FileDown className="h-4 w-4" />
-            Baixar PDF com Inteligência
+            <span className="hidden sm:inline">Baixar PDF com Inteligência</span>
+            <span className="sm:hidden">PDF</span>
           </Button>
         </div>
 

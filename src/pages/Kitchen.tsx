@@ -98,24 +98,22 @@ const OrderCard = ({
             </Button>
           )}
 
-          {order.status !== 'aguardando' && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  order.customerAddress + " Mossoro RN"
-                )}`;
-                const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName
-                  }\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-              }}
-              className="gap-1 border-primary/20 hover:bg-primary/5"
-              title="Enviar para Entregador"
-            >
-              <Bike className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                order.customerAddress + " Mossoro RN"
+              )}`;
+              const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName
+                }\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
+              window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+            }}
+            className="gap-1 border-primary/20 hover:bg-primary/5"
+            title="Enviar para Entregador"
+          >
+            <Bike className="h-4 w-4" />
+          </Button>
 
           {showAdvance && (
             <Button size="sm" onClick={onAdvance} className="gap-1">
@@ -182,13 +180,7 @@ const Kitchen = () => {
   const activeOrders = orders.filter((o) => {
     // Esconder pedidos recusados da lista principal
     if (o.status === "recusado") return false;
-
-    if (o.status !== "entregue") return true;
-
-    // For completed orders, only show today's orders
-    const today = new Date().toDateString();
-    const orderDate = new Date(o.createdAt).toDateString();
-    return orderDate === today;
+    return true;
   });
 
   return (
@@ -196,30 +188,30 @@ const Kitchen = () => {
       <div className="min-h-screen bg-foreground">
         {/* Header */}
         <header className="bg-card border-b-2 border-primary/20 sticky top-0 z-10 shadow-md">
-          <div className="px-6 py-4 flex items-center justify-between">
+          <div className="px-4 md:px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div>
                 <h1 className="text-lg md:text-xl font-serif font-bold text-foreground flex items-center gap-2">
                   <ChefHat className="h-5 w-5 text-primary" />
                   Cozinha
                 </h1>
-                <p className="text-xs md:text-sm text-muted-foreground">
+                <p className="text-xs text-muted-foreground hidden sm:block">
                   Sistema de Pedidos
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-foreground gap-2 py-1.5 px-3">
-                <Users className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-foreground gap-2 py-1 px-2 md:px-3 text-xs md:text-sm">
+                <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 <span className="font-bold">{activeOrders.length}</span>
-                <span className="hidden sm:inline">pedidos ativos</span>
+                <span className="hidden sm:inline">ativos</span>
               </Badge>
               <Button
                 variant="outline"
-                size="icon"
+                size="sm"
                 onClick={refreshOrders}
                 disabled={isLoading}
-                className="hover:border-primary"
+                className="hover:border-primary px-2"
               >
                 <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
               </Button>
@@ -228,7 +220,7 @@ const Kitchen = () => {
         </header>
 
         {/* Kanban Board */}
-        <main className="p-6">
+        <main className="p-2 md:p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-pulse text-primary-foreground/60">Carregando pedidos...</div>

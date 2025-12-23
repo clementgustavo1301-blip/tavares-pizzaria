@@ -278,7 +278,8 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                 </Button>
             </div>
 
-            <div className="rounded-md border bg-card">
+            {/* Desktop Table View */}
+            <div className="hidden md:block rounded-md border bg-card">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -353,6 +354,65 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Mobile List View */}
+            <div className="md:hidden space-y-4">
+                {loading ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                        Carregando itens...
+                    </div>
+                ) : items.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg">
+                        Nenhum item encontrado.
+                    </div>
+                ) : (
+                    items.map((item) => (
+                        <div key={item.id} className={`flex gap-4 p-4 rounded-lg border bg-card ${!item.available ? "opacity-70 bg-muted/30" : ""}`}>
+                            <img
+                                src={item.image_url || "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=100&h=100&fit=crop"}
+                                alt={item.name}
+                                className={`w-20 h-20 object-cover rounded-md ${!item.available ? "grayscale" : ""}`}
+                            />
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start mb-1">
+                                    <div>
+                                        <h3 className="font-semibold truncate pr-2">{item.name}</h3>
+                                        <p className="text-sm font-bold text-primary">
+                                            R$ {item.price.toFixed(2).replace(".", ",")}
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={item.available}
+                                        onCheckedChange={() => handleToggleAvailability(item)}
+                                        className="scale-90 origin-right"
+                                    />
+                                </div>
+
+                                {item.description && (
+                                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                                        {item.description}
+                                    </p>
+                                )}
+
+                                <div className="flex justify-end gap-2 mt-2">
+                                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => handleOpenModal(item)}>
+                                        <Edit className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 border-destructive/30 hover:bg-destructive/10"
+                                        onClick={() => setDeletingItem(item)}
+                                    >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
