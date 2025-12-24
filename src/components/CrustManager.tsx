@@ -185,7 +185,8 @@ export function CrustManager() {
                 </Button>
             </div>
 
-            <div className="rounded-md border bg-card">
+            {/* Desktop Table View */}
+            <div className="hidden md:block rounded-md border bg-card">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -234,6 +235,54 @@ export function CrustManager() {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Mobile List View */}
+            <div className="md:hidden space-y-4">
+                {loading ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                        Carregando bordas...
+                    </div>
+                ) : crusts.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg">
+                        Nenhuma borda cadastrada.
+                    </div>
+                ) : (
+                    crusts.map((crust) => (
+                        <div key={crust.id} className={`flex items-center justify-between p-4 rounded-lg border bg-card ${!crust.is_active ? "opacity-70 bg-muted/30" : ""}`}>
+                            <div className="flex-1 min-w-0 mr-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="font-semibold truncate">{crust.name}</h3>
+                                    {crust.price === 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Grátis</span>}
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    {crust.price > 0 ? `+ R$ ${crust.price.toFixed(2).replace(".", ",")}` : "Sem custo adicional"}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-3">
+                                <Switch
+                                    checked={crust.is_active}
+                                    onCheckedChange={() => handleToggleStatus(crust)}
+                                />
+                                <div className="flex gap-1">
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleOpenModal(crust)}>
+                                        <Edit className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                        onClick={() => setDeletingId(crust.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

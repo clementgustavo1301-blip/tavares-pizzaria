@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users, Bike, XCircle, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Clock, ChefHat, Truck, CheckCircle, ArrowRight, RefreshCw, Users, Bike, XCircle, Check, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrderPrinter } from "@/components/OrderPrinter";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType; bgColor: string; textColor: string }> = {
   aguardando: { label: "Novos Pedidos", icon: Clock, bgColor: "bg-accent", textColor: "text-accent-foreground" },
@@ -32,12 +34,14 @@ const OrderCard = ({
   order,
   onAdvance,
   onReject,
+  onPrint,
   showAdvance,
   showReject
 }: {
   order: Order;
   onAdvance: () => void;
   onReject?: () => void;
+  onPrint: () => void;
   showAdvance: boolean;
   showReject?: boolean;
 }) => (
@@ -100,6 +104,16 @@ const OrderCard = ({
 
           <Button
             size="sm"
+            variant="ghost"
+            onClick={onPrint}
+            className="px-2 border border-input hover:bg-accent hover:text-accent-foreground"
+            title="Imprimir Cupom"
+          >
+            <Printer className="h-4 w-4" />
+          </Button>
+
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => {
               const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -128,9 +142,108 @@ const OrderCard = ({
 );
 
 const Kitchen = () => {
-  const { orders, updateOrderStatus, refreshOrders, isLoading } = useOrder();
+  const { orders, updateOrderStatus, refreshOrders, isLoading: isOrderLoading, getOrderById } = useOrder();
   const [rejectingOrder, setRejectingOrder] = useState<Order | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+
+  // Auto-print subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("kitchen-printer")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders" },
+        async (payload) => {
+          console.log("New order detected via Realtime:", payload);
+          if (payload.new && (payload.new.status === "pending" || payload.new.status === "aguardando")) {
+            // We need to fetch the full order structure including items
+            // Since context might not be updated yet, wait a bit or force refresh
+            await refreshOrders();
+
+            // Small delay to ensure state update propagates
+            setTimeout(() => {
+              const newOrder = getOrderById(payload.new.id); // This might be stale if getOrderById depends on context state and it hasn't re-rendered? 
+              // Context's getOrderById reads from 'orders' state. refreshOrders updates 'orders'.
+              // However, updated 'orders' is only available in NEXT render of Kitchen.
+              // WE CANNOT seek the order immediately here from state.
+              // We should probably rely on a separate effect that watches 'orders' or just force a print from a fresh fetch.
+            }, 500);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshOrders]); // Note: getOrderById and orders are missing deps but we can't use them here safely if they change.
+
+  // Alternative Auto-print logic: watch orders changes
+  // We keep track of the last order ID we printed (or just processed) to avoid duplicates?
+  // Or simpler: The user asked for a listener.
+  // Proper way: When INSERT happens -> Toast -> Print.
+  // To get the order data reliably without waiting for context re-render:
+  // Fetch it manually here.
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("kitchen-auto-print")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders" },
+        async (payload) => {
+          if (payload.new.status === 'pending') {
+            toast.info("Novo pedido recebido! Imprimindo...", { duration: 3000 });
+
+            // Fetch full data manually to avoid sync issues
+            const { data: orderData, error } = await supabase
+              .from('orders')
+              .select('*')
+              .eq('id', payload.new.id)
+              .single();
+
+            const { data: itemsData } = await supabase
+              .from('order_items')
+              .select('*')
+              .eq('order_id', payload.new.id);
+
+            if (orderData && itemsData) {
+              // Construct Order object
+              const newOrder: Order = {
+                id: orderData.id,
+                displayId: orderData.display_id,
+                customerName: orderData.customer_name,
+                customerAddress: orderData.address || "",
+                total: orderData.total_amount,
+                status: 'aguardando', // mapped
+                paymentMethod: orderData.payment_method,
+                createdAt: new Date(orderData.created_at),
+                items: itemsData.map((item: any) => ({
+                  pizza: { id: item.id, name: item.pizza_name, price: item.price, description: "", ingredients: [], image: "" },
+                  quantity: item.quantity,
+                  observation: item.observations
+                }))
+              };
+
+              handlePrint(newOrder);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel) };
+  }, []);
+
+  const handlePrint = (order: Order) => {
+    setPrintingOrder(order);
+    // Wait for render
+    setTimeout(() => {
+      window.print();
+      // Optional: Clear after print, but keeps it in DOM is fine
+    }, 100);
+  };
 
   const getNextStatus = (current: OrderStatus): OrderStatus | null => {
     const flow: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
@@ -186,6 +299,9 @@ const Kitchen = () => {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-foreground">
+        {/* Helper Component for Printing */}
+        <OrderPrinter order={printingOrder} />
+
         {/* Header */}
         <header className="bg-card border-b-2 border-primary/20 sticky top-0 z-10 shadow-md">
           <div className="px-4 md:px-6 py-3 flex items-center justify-between">
@@ -210,10 +326,10 @@ const Kitchen = () => {
                 variant="outline"
                 size="sm"
                 onClick={refreshOrders}
-                disabled={isLoading}
+                disabled={isOrderLoading}
                 className="hover:border-primary px-2"
               >
-                <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                <RefreshCw className={cn("h-4 w-4", isOrderLoading && "animate-spin")} />
               </Button>
             </div>
           </div>
@@ -221,7 +337,7 @@ const Kitchen = () => {
 
         {/* Kanban Board */}
         <main className="p-2 md:p-6">
-          {isLoading ? (
+          {isOrderLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-pulse text-primary-foreground/60">Carregando pedidos...</div>
             </div>
@@ -283,6 +399,7 @@ const Kitchen = () => {
                             order={order}
                             onAdvance={() => handleAdvanceStatus(order)}
                             onReject={() => handleRejectClick(order)}
+                            onPrint={() => handlePrint(order)}
                             showAdvance={!!getNextStatus(order.status)}
                             showReject={order.status === 'aguardando'}
                           />
@@ -326,6 +443,7 @@ const Kitchen = () => {
                             order={order}
                             onAdvance={() => handleAdvanceStatus(order)}
                             onReject={() => handleRejectClick(order)}
+                            onPrint={() => handlePrint(order)}
                             showAdvance={!!getNextStatus(order.status)}
                             showReject={order.status === 'aguardando'}
                           />

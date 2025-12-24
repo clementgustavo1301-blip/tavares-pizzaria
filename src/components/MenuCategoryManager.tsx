@@ -376,17 +376,17 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                                 className={`w-20 h-20 object-cover rounded-md ${!item.available ? "grayscale" : ""}`}
                             />
                             <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div>
-                                        <h3 className="font-semibold truncate pr-2">{item.name}</h3>
-                                        <p className="text-sm font-bold text-primary">
+                                <div className="flex justify-between items-start mb-2 gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold truncate pr-1 text-sm leading-tight">{item.name}</h3>
+                                        <p className="text-xs font-bold text-primary mt-1">
                                             R$ {item.price.toFixed(2).replace(".", ",")}
                                         </p>
                                     </div>
                                     <Switch
                                         checked={item.available}
                                         onCheckedChange={() => handleToggleAvailability(item)}
-                                        className="scale-90 origin-right"
+                                        className="shrink-0 scale-75 origin-top-right"
                                     />
                                 </div>
 

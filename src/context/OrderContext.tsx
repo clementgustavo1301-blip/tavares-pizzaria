@@ -75,7 +75,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true }); // Fetch oldest first for correct sequence generation
 
       if (ordersError) {
         console.error("Error fetching orders:", ordersError);
@@ -98,15 +98,33 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Map database orders to frontend format
+      // Helper to generate daily sequence IDs
+      const dateCounters: Record<string, number> = {};
+
+      const getNextId = (dateStr: string) => {
+        const date = new Date(dateStr);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const key = `${day}${month}`;
+
+        if (!dateCounters[key]) dateCounters[key] = 0;
+        dateCounters[key]++;
+
+        return `#${key}-${String(dateCounters[key]).padStart(3, '0')}`;
+      };
+
+      // Map database orders to frontend format AND generate IDs
       const mappedOrders: Order[] = ordersData.map((dbOrder: DbOrder) => {
         const orderItems = (itemsData || []).filter(
           (item: DbOrderItem) => item.order_id === dbOrder.id
         );
 
+        // Generate display ID based on sequence
+        const generatedDisplayId = getNextId(dbOrder.created_at);
+
         return {
           id: dbOrder.id,
-          displayId: dbOrder.display_id || undefined,
+          displayId: generatedDisplayId, // Use generated ID
           customerName: dbOrder.customer_name,
           customerAddress: dbOrder.address || "",
           total: dbOrder.total_amount,
@@ -132,7 +150,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         };
       });
 
-      setOrders(mappedOrders);
+      // Sort by newest first for display
+      setOrders(mappedOrders.reverse());
     } catch (error) {
       console.error("Error in fetchOrders:", error);
     } finally {

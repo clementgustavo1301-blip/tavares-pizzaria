@@ -52,11 +52,32 @@ const Reports = () => {
     const fetchData = async () => {
       try {
         const [ordersRes, itemsRes] = await Promise.all([
-          supabase.from("orders").select("*").order("created_at", { ascending: false }),
+          supabase.from("orders").select("*").order("created_at", { ascending: true }), // Fetch oldest first for sequence
           supabase.from("order_items").select("*"),
         ]);
 
-        if (ordersRes.data) setOrders(ordersRes.data);
+        if (ordersRes.data) {
+          // Generate sequential IDs
+          const dateCounters: Record<string, number> = {};
+          const enrichedOrders = ordersRes.data.map(order => {
+            const date = new Date(order.created_at);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const key = `${day}${month}`;
+
+            if (!dateCounters[key]) dateCounters[key] = 0;
+            dateCounters[key]++;
+
+            return {
+              ...order,
+              display_id: `#${key}-${String(dateCounters[key]).padStart(3, '0')}`
+            };
+          });
+
+          // Reverse to show newest first
+          setOrders(enrichedOrders.reverse());
+        }
+
         if (itemsRes.data) setOrderItems(itemsRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
