@@ -17,7 +17,7 @@ export function Hero() {
       <div className="animate-fade-in" style={{
         animationDelay: "0.2s"
       }}>
-        <img alt="Tavares Pizzaria" src="/lovable-uploads/5f90581f-0c87-4f5b-9f44-6a29e1493657.png" className="mx-auto h-40 md:h-56 w-auto mb-6 object-scale-down" />
+        <img alt="Tavares Pizzaria" src="/lovable-uploads/5f90581f-0c87-4f5b-9f44-6a29e1493657.png" className="mx-auto h-40 md:h-56 w-auto mb-6 object-scale-down rounded-full" />
       </div>
 
       <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-primary-foreground mb-4 animate-fade-in drop-shadow-lg" style={{

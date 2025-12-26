@@ -46,7 +46,7 @@ export function Header({ onCartClick }: HeaderProps) {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 shrink-0">
-            <img src={logo} alt="Tavares Pizzaria" className="h-10 md:h-12 w-auto" />
+            <img src={logo} alt="Tavares Pizzaria" className="h-10 md:h-12 w-auto rounded-full" />
           </a>
 
           {/* Desktop Navigation */}

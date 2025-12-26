@@ -273,15 +273,12 @@ const Kitchen = () => {
 
     // For completed orders, only show those from today
     if (o.status === "entregue") {
-      const orderDate = o.deliveredAt || o.createdAt;
+      const orderDate = new Date(o.deliveredAt || o.createdAt);
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Midnight today
 
-      const isSameDay =
-        orderDate.getDate() === today.getDate() &&
-        orderDate.getMonth() === today.getMonth() &&
-        orderDate.getFullYear() === today.getFullYear();
-
-      if (!isSameDay) return false;
+      // If the order is older than midnight today, hide it
+      if (orderDate < today) return false;
     }
 
     return true;
