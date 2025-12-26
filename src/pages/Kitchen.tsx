@@ -85,11 +85,11 @@ const OrderCard = ({
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-3 border-t">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 border-t gap-3 sm:gap-0">
         <span className="font-bold text-lg text-primary">
           R$ {order.total.toFixed(2).replace(".", ",")}
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
           {showReject && onReject && (
             <Button
               size="sm"
@@ -130,7 +130,7 @@ const OrderCard = ({
           </Button>
 
           {showAdvance && (
-            <Button size="sm" onClick={onAdvance} className="gap-1">
+            <Button size="sm" onClick={onAdvance} className="gap-1 flex-1 sm:flex-none">
               {order.status === 'aguardando' ? "Aceitar" : "Avançar"}
               {order.status === 'aguardando' ? <Check className="h-3 w-3" /> : <ArrowRight className="h-3 w-3" />}
             </Button>
@@ -147,56 +147,33 @@ const Kitchen = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
-  // Auto-print subscription
+  // Effect to handle actual printing when `printingOrder` is set
+  useEffect(() => {
+    if (printingOrder) {
+      console.log("Printing order:", printingOrder.id);
+
+      const timer = setTimeout(() => {
+        window.print();
+        setPrintingOrder(null); // Clear state to avoid loop
+      }, 500); // 500ms delay to ensure DOM is ready
+
+      return () => clearTimeout(timer);
+    }
+  }, [printingOrder]);
+
+  // Realtime subscription for new orders
   useEffect(() => {
     const channel = supabase
-      .channel("kitchen-printer")
+      .channel("kitchen-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "orders" },
         async (payload) => {
-          console.log("New order detected via Realtime:", payload);
-          if (payload.new && (payload.new.status === "pending" || payload.new.status === "aguardando")) {
-            // We need to fetch the full order structure including items
-            // Since context might not be updated yet, wait a bit or force refresh
-            await refreshOrders();
-
-            // Small delay to ensure state update propagates
-            setTimeout(() => {
-              const newOrder = getOrderById(payload.new.id); // This might be stale if getOrderById depends on context state and it hasn't re-rendered? 
-              // Context's getOrderById reads from 'orders' state. refreshOrders updates 'orders'.
-              // However, updated 'orders' is only available in NEXT render of Kitchen.
-              // WE CANNOT seek the order immediately here from state.
-              // We should probably rely on a separate effect that watches 'orders' or just force a print from a fresh fetch.
-            }, 500);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [refreshOrders]); // Note: getOrderById and orders are missing deps but we can't use them here safely if they change.
-
-  // Alternative Auto-print logic: watch orders changes
-  // We keep track of the last order ID we printed (or just processed) to avoid duplicates?
-  // Or simpler: The user asked for a listener.
-  // Proper way: When INSERT happens -> Toast -> Print.
-  // To get the order data reliably without waiting for context re-render:
-  // Fetch it manually here.
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("kitchen-auto-print")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders" },
-        async (payload) => {
-          if (payload.new.status === 'pending') {
+          console.log("New order detected:", payload);
+          if (payload.new.status === 'pending' || payload.new.status === 'aguardando') {
             toast.info("Novo pedido recebido! Imprimindo...", { duration: 3000 });
 
-            // Fetch full data manually to avoid sync issues
+            // Fetch full data manually
             const { data: orderData, error } = await supabase
               .from('orders')
               .select('*')
@@ -209,14 +186,13 @@ const Kitchen = () => {
               .eq('order_id', payload.new.id);
 
             if (orderData && itemsData) {
-              // Construct Order object
               const newOrder: Order = {
                 id: orderData.id,
                 displayId: orderData.display_id,
                 customerName: orderData.customer_name,
                 customerAddress: orderData.address || "",
                 total: orderData.total_amount,
-                status: 'aguardando', // mapped
+                status: 'aguardando',
                 paymentMethod: orderData.payment_method,
                 createdAt: new Date(orderData.created_at),
                 items: itemsData.map((item: any) => ({
@@ -226,23 +202,24 @@ const Kitchen = () => {
                 }))
               };
 
-              handlePrint(newOrder);
+              // Trigger print
+              setPrintingOrder(newOrder);
+
+              // Refresh list
+              refreshOrders();
             }
           }
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel) };
-  }, []);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refreshOrders]);
 
   const handlePrint = (order: Order) => {
     setPrintingOrder(order);
-    // Wait for render
-    setTimeout(() => {
-      window.print();
-      // Optional: Clear after print, but keeps it in DOM is fine
-    }, 100);
   };
 
   const getNextStatus = (current: OrderStatus): OrderStatus | null => {
@@ -291,8 +268,22 @@ const Kitchen = () => {
   };
 
   const activeOrders = orders.filter((o) => {
-    // Esconder pedidos recusados da lista principal
+    // Hide rejected orders
     if (o.status === "recusado") return false;
+
+    // For completed orders, only show those from today
+    if (o.status === "entregue") {
+      const orderDate = o.deliveredAt || o.createdAt;
+      const today = new Date();
+
+      const isSameDay =
+        orderDate.getDate() === today.getDate() &&
+        orderDate.getMonth() === today.getMonth() &&
+        orderDate.getFullYear() === today.getFullYear();
+
+      if (!isSameDay) return false;
+    }
+
     return true;
   });
 
