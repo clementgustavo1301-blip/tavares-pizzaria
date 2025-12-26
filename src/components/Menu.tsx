@@ -30,8 +30,23 @@ export function Menu() {
       acc[category].push(pizza);
       return acc;
     }, {} as Record<string, typeof pizzas>);
-  const categoryOrder = ["Tradicionais", "Doces"];
-  const sortedCategories = Object.keys(groupedPizzas).sort((a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b));
+  const getCategoryRank = (category: string) => {
+    const lowerCat = category.toLowerCase();
+    if (lowerCat.includes("tradicionais") || lowerCat.includes("tradicional")) return 1;
+    if (lowerCat.includes("especiais") || lowerCat.includes("especial")) return 2;
+    if (lowerCat.includes("doce")) return 3;
+    return 100; // All other categories come last
+  };
+
+  const sortedCategories = Object.keys(groupedPizzas).sort((a, b) => {
+    const rankA = getCategoryRank(a);
+    const rankB = getCategoryRank(b);
+
+    if (rankA !== rankB) return rankA - rankB;
+
+    // Fallback: Alphabetical sort for same-rank items
+    return a.localeCompare(b);
+  });
   return <section id="cardapio" className="py-16 md:py-20 gradient-paper bg-paper-texture">
     <div className="container mx-auto px-4">
       <div className="text-center mb-12 md:mb-16">
