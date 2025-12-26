@@ -42,8 +42,7 @@ const pizzaImageMap: { keywords: string[]; url: string }[] = [
   },
 ];
 
-const DEFAULT_PIZZA_IMAGE =
-  "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=60";
+const DEFAULT_PIZZA_IMAGE = "/placeholder.png";
 
 /**
  * Get a pizza image URL based on the pizza name.
