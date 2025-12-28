@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit, Loader2, AlertTriangle } from "lucide-react";
+import { useProductAvailability } from "@/hooks/useProductAvailability";
 
 interface CrustOption {
     id: string;
@@ -49,6 +50,7 @@ export function CrustManager() {
     const [formData, setFormData] = useState({ name: "", price: "" });
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const { checkAvailability } = useProductAvailability();
 
     useEffect(() => {
         fetchCrusts();
@@ -210,28 +212,44 @@ export function CrustManager() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            crusts.map((crust) => (
-                                <TableRow key={crust.id} className={!crust.is_active ? "opacity-60 bg-muted/30" : ""}>
-                                    <TableCell className="font-medium">{crust.name}</TableCell>
-                                    <TableCell>
-                                        {crust.price === 0 ? <span className="text-green-600 font-medium">Grátis</span> : `+ R$ ${crust.price.toFixed(2).replace(".", ",")}`}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Switch
-                                            checked={crust.is_active}
-                                            onCheckedChange={() => handleToggleStatus(crust)}
-                                        />
-                                    </TableCell>
-                                    <TableCell className="text-right space-x-2">
-                                        <Button variant="ghost" size="icon" onClick={() => handleOpenModal(crust)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeletingId(crust.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))
+                            crusts.map((crust) => {
+                                const status = checkAvailability(crust.name, "");
+                                const isBlocked = !status.available;
+                                return (
+                                    <TableRow key={crust.id} className={!crust.is_active || isBlocked ? "opacity-60 bg-muted/30" : ""}>
+                                        <TableCell className="font-medium">
+                                            <div className="flex flex-col">
+                                                <span>{crust.name}</span>
+                                                {isBlocked && (
+                                                    <span className="text-xs text-orange-500 font-bold flex items-center gap-1">
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        {status.reason} (Falta Estoque)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {crust.price === 0 ? <span className="text-green-600 font-medium">Grátis</span> : `+ R$ ${crust.price.toFixed(2).replace(".", ",")}`}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Switch
+                                                checked={crust.is_active && !isBlocked}
+                                                onCheckedChange={() => handleToggleStatus(crust)}
+                                                disabled={isBlocked}
+                                                className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="text-right space-x-2">
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenModal(crust)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => setDeletingId(crust.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
@@ -249,39 +267,53 @@ export function CrustManager() {
                         Nenhuma borda cadastrada.
                     </div>
                 ) : (
-                    crusts.map((crust) => (
-                        <div key={crust.id} className={`flex items-center justify-between p-4 rounded-lg border bg-card ${!crust.is_active ? "opacity-70 bg-muted/30" : ""}`}>
-                            <div className="flex-1 min-w-0 mr-4">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-semibold truncate">{crust.name}</h3>
-                                    {crust.price === 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Grátis</span>}
+                    crusts.map((crust) => {
+                        const status = checkAvailability(crust.name, "");
+                        const isBlocked = !status.available;
+                        return (
+                            <div key={crust.id} className={`flex items-center justify-between p-4 rounded-lg border bg-card ${!crust.is_active || isBlocked ? "opacity-70 bg-muted/30" : ""}`}>
+                                <div className="flex-1 min-w-0 mr-4">
+                                    <div className="flex flex-col gap-1 mb-1">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-semibold truncate">{crust.name}</h3>
+                                            {crust.price === 0 && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Grátis</span>}
+                                        </div>
+                                        {isBlocked && (
+                                            <p className="text-xs text-orange-500 font-bold flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                {status.reason} (Falta Estoque)
+                                            </p>
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-medium text-muted-foreground">
+                                        {crust.price > 0 ? `+ R$ ${crust.price.toFixed(2).replace(".", ",")}` : "Sem custo adicional"}
+                                    </p>
                                 </div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    {crust.price > 0 ? `+ R$ ${crust.price.toFixed(2).replace(".", ",")}` : "Sem custo adicional"}
-                                </p>
-                            </div>
 
-                            <div className="flex flex-col items-end gap-3">
-                                <Switch
-                                    checked={crust.is_active}
-                                    onCheckedChange={() => handleToggleStatus(crust)}
-                                />
-                                <div className="flex gap-1">
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleOpenModal(crust)}>
-                                        <Edit className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                                        onClick={() => setDeletingId(crust.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                <div className="flex flex-col items-end gap-3">
+                                    <Switch
+                                        checked={crust.is_active && !isBlocked}
+                                        onCheckedChange={() => handleToggleStatus(crust)}
+                                        disabled={isBlocked}
+                                        className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+                                    />
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleOpenModal(crust)}>
+                                            <Edit className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                            onClick={() => setDeletingId(crust.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 

@@ -42,6 +42,8 @@ interface OrderContextType {
   refreshOrders: () => Promise<void>;
   cartTotal: number;
   cartItemsCount: number;
+  isStoreOpen: boolean;
+  toggleStoreStatus: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -376,6 +378,65 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     await fetchOrders();
   }, [fetchOrders]);
 
+  /* STORE STATUS MANAGEMENT */
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
+
+  const fetchStoreStatus = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("store_settings")
+        .select("is_open")
+        .eq("id", 1)
+        .single();
+
+      if (error) {
+        console.error("Error fetching store status:", error);
+      } else if (data) {
+        setIsStoreOpen(data.is_open);
+      }
+    } catch (error) {
+      console.error("Error fetching store status:", error);
+    }
+  }, []);
+
+  const toggleStoreStatus = async () => {
+    try {
+      const newStatus = !isStoreOpen;
+      const { error } = await supabase
+        .from("store_settings")
+        .update({ is_open: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", 1);
+
+      if (error) throw error;
+      setIsStoreOpen(newStatus);
+    } catch (error) {
+      console.error("Error toggling store status:", error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    fetchStoreStatus();
+
+    // Subscribe to store settings changes
+    const channel = supabase
+      .channel("store-settings-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "store_settings", filter: "id=eq.1" },
+        (payload) => {
+          if (payload.new && typeof payload.new.is_open === 'boolean') {
+            setIsStoreOpen(payload.new.is_open);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStoreStatus]);
+
   const value = React.useMemo(() => ({
     cart,
     orders,
@@ -391,6 +452,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     refreshOrders,
     cartTotal,
     cartItemsCount,
+    isStoreOpen,
+    toggleStoreStatus,
   }), [
     cart,
     orders,
@@ -405,7 +468,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     getOrderById,
     refreshOrders,
     cartTotal,
-    cartItemsCount
+    cartItemsCount,
+    isStoreOpen,
   ]);
 
   return (

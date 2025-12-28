@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ChefHat, BarChart3, LogOut, UtensilsCrossed, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChefHat, BarChart3, LogOut, UtensilsCrossed, ChevronLeft, ChevronRight, Package, TicketPercent } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useOrder } from "@/context/OrderContext";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,19 @@ const AdminSidebar = () => {
         : "text-foreground hover:bg-muted",
       isCollapsed && "justify-center px-2"
     );
+
+  /* STORE TOGGLE */
+  const { isStoreOpen, toggleStoreStatus } = useOrder();
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggle = async () => {
+    setToggling(true);
+    try {
+      await toggleStoreStatus();
+    } finally {
+      setToggling(false);
+    }
+  };
 
   return (
     <aside
@@ -42,6 +57,23 @@ const AdminSidebar = () => {
         </Button>
       </div>
 
+      {/* Store Status Toggle */}
+      <div className={cn("px-4 py-4 border-b border-border transition-all", isCollapsed ? "flex justify-center" : "")}>
+        <div className={cn("flex items-center gap-3", isCollapsed ? "flex-col" : "justify-between")}>
+          <div className={cn("flex items-center gap-2", isCollapsed ? "hidden" : "flex")}>
+            <div className={cn("w-2 h-2 rounded-full animate-pulse", isStoreOpen ? "bg-green-500" : "bg-red-500")} />
+            <span className="text-sm font-medium">{isStoreOpen ? "Aberto" : "Fechado"}</span>
+          </div>
+
+          <Switch
+            checked={isStoreOpen}
+            onCheckedChange={handleToggle}
+            disabled={toggling}
+            className={isCollapsed ? "scale-75" : ""}
+          />
+        </div>
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-2 mt-4">
         <NavLink to="/cozinha" className={linkClass} title={isCollapsed ? "Cozinha" : undefined}>
@@ -55,6 +87,14 @@ const AdminSidebar = () => {
         <NavLink to="/admin/relatorios" className={linkClass} title={isCollapsed ? "Relatórios" : undefined}>
           <BarChart3 className="h-5 w-5 shrink-0" />
           {!isCollapsed && <span>Relatórios</span>}
+        </NavLink>
+        <NavLink to="/admin/estoque" className={linkClass} title={isCollapsed ? "Estoque" : undefined}>
+          <Package className="h-5 w-5 shrink-0" />
+          {!isCollapsed && <span>Estoque</span>}
+        </NavLink>
+        <NavLink to="/admin/promocoes" className={linkClass} title={isCollapsed ? "Promoções" : undefined}>
+          <TicketPercent className="h-5 w-5 shrink-0" />
+          {!isCollapsed && <span>Promoções</span>}
         </NavLink>
       </nav>
 

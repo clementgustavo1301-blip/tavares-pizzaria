@@ -12,6 +12,8 @@ import Kitchen from "./pages/Kitchen";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
 import MenuManager from "./pages/MenuManager";
+import StockControl from "./pages/StockControl";
+import AdminPromotions from "./pages/AdminPromotions";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -29,13 +31,15 @@ const App = () => (
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/pedido/:orderId" element={<OrderTracking />} />
             <Route path="/meus-pedidos" element={<MyOrders />} />
-            <Route path="/cozinha" element={<Kitchen />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<Navigate to="/admin/relatorios" replace />} />
+            <Route path="/admin" element={<Navigate to="/cozinha" replace />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/cozinha" element={<Kitchen />} />
               <Route path="/admin/cardapio" element={<MenuManager />} />
+              <Route path="/admin/promocoes" element={<AdminPromotions />} />
               <Route path="/admin/relatorios" element={<Reports />} />
+              <Route path="/admin/estoque" element={<StockControl />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

@@ -13,7 +13,7 @@ interface CartDrawerProps {
 }
 
 export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
-  const { cart, cartTotal, updateQuantity, removeFromCart } = useOrder();
+  const { cart, cartTotal, updateQuantity, removeFromCart, isStoreOpen } = useOrder();
   const navigate = useNavigate();
 
   const [showUpsell, setShowUpsell] = useState(false);
@@ -155,9 +155,19 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                   variant="hero"
                   className="w-full mt-2"
                   onClick={handleCheckout}
+                  disabled={!isStoreOpen}
                 >
-                  Finalizar Pedido
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                  {isStoreOpen ? (
+                    <>
+                      Finalizar Pedido
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Loja Fechada
+                    </>
+                  )}
                 </Button>
               </div>
             </>

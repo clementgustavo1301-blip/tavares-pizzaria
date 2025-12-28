@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useProductAvailability } from "@/hooks/useProductAvailability";
 
 interface PizzaCardProps {
   pizza: Pizza;
@@ -31,14 +32,23 @@ interface CrustOption {
   name: string;
   price: number;
   is_active: boolean;
+  isBlocked?: boolean;
 }
 
 export function PizzaCard({ pizza }: PizzaCardProps) {
-  const { addToCart } = useOrder();
+  const { addToCart, isStoreOpen } = useOrder();
   const [selectedBorda, setSelectedBorda] = useState<string>("");
   const [observation, setObservation] = useState<string>("");
   const [crustOptions, setCrustOptions] = useState<CrustOption[]>([]);
   const [loadingCrusts, setLoadingCrusts] = useState(false);
+  const { checkAvailability, unavailableIngredients } = useProductAvailability();
+
+  // Check centralized availability for the pizza itself
+  const availabilityStatus = checkAvailability(pizza.name, pizza.description);
+  const isPizzaAvailable = (pizza.available !== false) && availabilityStatus.available;
+  // User requested NOT to show what is missing ("não mostrar o que não tem").
+  // So we just show "Esgotado" or "Indisponível".
+  const blockedReason = !isPizzaAvailable ? "Esgotado" : null;
 
   // Check if the item is a pizza based on category
   const isPizza = (pizza.category || "").toLowerCase().includes("pizza") ||
@@ -50,19 +60,30 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
     if (isPizza) {
       fetchCrustOptions();
     }
-  }, [isPizza]);
+  }, [isPizza, unavailableIngredients]);
 
   const fetchCrustOptions = async () => {
     setLoadingCrusts(true);
     try {
-      const { data, error } = await supabase
+      // Fetch crusts
+      const { data: crusts, error: crustError } = await supabase
         .from("crust_options")
         .select("*")
         .eq("is_active", true)
         .order("price", { ascending: true });
 
-      if (error) throw error;
-      setCrustOptions(data || []);
+      if (crustError) throw crustError;
+
+      // Mark blocked crusts using the centralized list from hook
+      const processedCrusts = (crusts || []).map(crust => {
+        const isBlocked = unavailableIngredients.some(blocked => crust.name.toLowerCase().includes(blocked));
+        return {
+          ...crust,
+          isBlocked
+        };
+      });
+
+      setCrustOptions(processedCrusts);
     } catch (error) {
       console.error("Error fetching crusts:", error);
     } finally {
@@ -74,6 +95,8 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
   const totalPrice = pizza.price + selectedCrustPrice;
 
   const handleAddToCart = () => {
+    if (!isPizzaAvailable) return;
+
     if (isPizza && !selectedBorda) {
       toast.error("Selecione uma borda", {
         description: "Por favor, escolha uma opção de borda para sua pizza.",
@@ -81,7 +104,24 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
       return;
     }
 
-    addToCart(pizza, observation.trim() || undefined, selectedBorda);
+    // Double check if crust is valid (just in case)
+    if (selectedBorda) {
+      const selectedCrust = crustOptions.find(c => c.name === selectedBorda);
+      if (selectedCrust?.isBlocked) {
+        toast.error("Borda Indisponível", {
+          description: "A borda selecionada contém ingredientes em falta.",
+        });
+        return;
+      }
+    }
+
+    // Create a new pizza object with the updated price
+    const pizzaWithCrust = {
+      ...pizza,
+      price: totalPrice
+    };
+
+    addToCart(pizzaWithCrust, observation.trim() || undefined, selectedBorda);
     toast.success("Adicionado ao carrinho!", {
       description: `${pizza.name}${selectedBorda ? ` com borda ${selectedBorda}` : ""} - R$ ${totalPrice.toFixed(2).replace(".", ",")}`,
     });
@@ -92,25 +132,26 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
   };
 
   return (
-    <Card className="h-full flex flex-col overflow-hidden border-2 border-transparent hover:border-primary/10 hover:shadow-elevated transition-all duration-300 group bg-card">
+    <Card className={`h-full flex flex-col overflow-hidden border-2 border-transparent transition-all duration-300 group bg-card ${!isPizzaAvailable ? "opacity-70 grayscale" : "hover:border-primary/10 hover:shadow-elevated"}`}>
       <div className="relative overflow-hidden aspect-[4/3]">
         <img
           src={pizza.image}
           alt={pizza.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+        <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 flex items-center justify-center ${!isPizzaAvailable ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
           <Button
             className="translate-y-4 group-hover:translate-y-0 transition-transform duration-300"
             onClick={handleAddToCart}
+            disabled={!isStoreOpen || !isPizzaAvailable}
           >
-            Adicionar Rápido
+            {!isStoreOpen ? "Fechado" : (!isPizzaAvailable ? "Indisponível" : "Adicionar Rápido")}
           </Button>
         </div>
-        {!pizza.available && (
-          <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
-            <span className="text-xl font-bold uppercase tracking-widest text-destructive rotate-[-15deg] border-4 border-destructive px-4 py-2 rounded-lg">
-              Esgotado
+        {!isPizzaAvailable && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm p-4 text-center">
+            <span className="text-xl font-bold uppercase tracking-widest text-destructive rotate-[-15deg] border-4 border-destructive px-4 py-2 rounded-lg bg-background/50">
+              {blockedReason}
             </span>
           </div>
         )}
@@ -143,9 +184,11 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
               </SelectTrigger>
               <SelectContent>
                 {crustOptions.map((crust) => (
-                  <SelectItem key={crust.id} value={crust.name}>
+                  <SelectItem key={crust.id} value={crust.name} disabled={crust.isBlocked}>
                     <div className="flex justify-between w-full gap-2 items-center">
-                      <span>{crust.name}</span>
+                      <span className={crust.isBlocked ? "text-muted-foreground line-through" : ""}>
+                        {crust.name} {crust.isBlocked && "(Esgotado)"}
+                      </span>
                       <span className="text-muted-foreground text-xs">
                         {crust.price === 0 ? "Grátis" : `+ R$ ${crust.price.toFixed(2).replace(".", ",")}`}
                       </span>
@@ -175,15 +218,22 @@ export function PizzaCard({ pizza }: PizzaCardProps) {
         <Button
           className="w-full font-semibold shadow-sm hover:shadow-md transition-all h-10"
           onClick={handleAddToCart}
-          disabled={!pizza.available}
+          disabled={!isPizzaAvailable || !isStoreOpen}
         >
-          <ShoppingCart className="mr-2 h-4 w-4" />
-          {isPizza ? (
-            selectedBorda
-              ? `Adicionar (R$ ${totalPrice.toFixed(2).replace(".", ",")})`
-              : "Selecione uma borda"
+          {isStoreOpen ? (
+            <ShoppingCart className="mr-2 h-4 w-4" />
           ) : (
-            "Adicionar ao Carrinho"
+            <Ban className="mr-2 h-4 w-4" />
+          )}
+
+          {!isStoreOpen ? "Loja Fechada" : (
+            isPizza ? (
+              selectedBorda
+                ? `Adicionar (R$ ${totalPrice.toFixed(2).replace(".", ",")})`
+                : "Selecione uma borda"
+            ) : (
+              !isPizzaAvailable ? "Indisponível" : "Adicionar ao Carrinho"
+            )
           )}
         </Button>
       </CardFooter>

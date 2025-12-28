@@ -24,6 +24,7 @@ export interface Pizza {
   isVegetarian?: boolean;
   category?: string;
   available?: boolean;
+  blockedBy?: string;
 }
 
 export function useMenuItems() {
@@ -31,65 +32,90 @@ export function useMenuItems() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const formatMenuItem = (item: MenuItem): Pizza => ({
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    ingredients: item.ingredients || [],
-    price: item.price,
-    image: getPizzaImage(item.image_url, item.name),
-    isVegetarian: item.is_vegetarian,
-    category: item.category,
-    available: item.available !== false,
-  });
+  // Helper to check blocked ingredients
+  const checkAvailability = (item: MenuItem, blockedIngredients: string[]): boolean => {
+    // If manually unavailable, keep it unavailable
+    if (item.available === false) return false;
+
+    // Check if any blocked ingredient is in name or description
+    const textToCheck = `${item.name} ${item.description}`.toLowerCase();
+
+    return !blockedIngredients.some(blocked => textToCheck.includes(blocked.toLowerCase()));
+  };
+
+  const formatMenuItem = (item: MenuItem, blockedIngredients: string[] = []): Pizza => {
+    const isAvailable = checkAvailability(item, blockedIngredients);
+
+    // Find which ingredient is blocked (just for display purposes if needed, logic is simple here)
+    const blockedBy = blockedIngredients.find(blocked =>
+      `${item.name} ${item.description}`.toLowerCase().includes(blocked.toLowerCase())
+    );
+
+    return {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      ingredients: item.ingredients || [],
+      price: item.price,
+      image: getPizzaImage(item.image_url, item.name),
+      isVegetarian: item.is_vegetarian,
+      category: item.category,
+      available: isAvailable,
+      blockedBy: blockedBy // Optional: Add this to Pizza interface to show specific blocking reason
+    };
+  };
 
   useEffect(() => {
-    async function fetchMenuItems() {
+    async function fetchData() {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+
+        // 1. Fetch Menu Items
+        const { data: menuData, error: menuError } = await supabase
           .from("menu_items")
           .select("*")
           .order("category", { ascending: true })
           .order("name", { ascending: true });
 
-        if (error) throw error;
+        if (menuError) throw menuError;
 
-        const formattedPizzas: Pizza[] = (data || []).map(formatMenuItem);
+        // 2. Fetch Blocked Ingredients
+        const { data: stockData, error: stockError } = await supabase
+          .from("unavailable_ingredients")
+          .select("name");
+
+        if (stockError) throw stockError;
+
+        const blockedIngredients = (stockData || []).map(i => i.name);
+
+        // 3. Merge and Format
+        const formattedPizzas: Pizza[] = (menuData || []).map(item => formatMenuItem(item, blockedIngredients));
         setPizzas(formattedPizzas);
+
       } catch (err) {
-        console.error("Error fetching menu items:", err);
-        setError("Erro ao carregar o cardápio");
+        console.error("Error fetching data:", err);
+        setError("Erro ao carregar o menu");
       } finally {
         setLoading(false);
       }
     }
 
-    fetchMenuItems();
+    fetchData();
 
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel("menu-items-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "menu_items",
-        },
-        (payload) => {
-          console.log("Menu item updated:", payload);
-          const updatedItem = payload.new as MenuItem;
-          setPizzas((prev) =>
-            prev.map((pizza) =>
-              pizza.id === updatedItem.id ? formatMenuItem(updatedItem) : pizza
-            )
-          );
-        }
-      )
+    // Subscribe to BOTH tables
+    const channel1 = supabase
+      .channel("menu-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, () => fetchData())
+      .subscribe();
+
+    const channel2 = supabase
+      .channel("stock-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "unavailable_ingredients" }, () => fetchData())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel1);
+      supabase.removeChannel(channel2);
     };
   }, []);
 

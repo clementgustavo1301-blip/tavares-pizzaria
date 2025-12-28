@@ -22,7 +22,7 @@ export default function Login() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate("/admin", { replace: true });
+        navigate("/cozinha", { replace: true });
       }
     };
     checkSession();
@@ -44,7 +44,7 @@ export default function Login() {
       }
 
       // Após signInWithPassword dar sucesso -> Forçe a navegação
-      const from = location.state?.from?.pathname || "/admin";
+      const from = location.state?.from?.pathname || "/cozinha";
       navigate(from, { replace: true });
 
     } catch (err: any) {

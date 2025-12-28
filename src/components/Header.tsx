@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export function Header({ onCartClick }: HeaderProps) {
-  const { cartItemsCount } = useOrder();
+  const { cartItemsCount, isStoreOpen } = useOrder();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -98,6 +98,13 @@ export function Header({ onCartClick }: HeaderProps) {
                 </span>
               )}
             </Button>
+
+            {!isStoreOpen && (
+              <div className="hidden md:flex items-center gap-2 bg-red-100 text-red-700 px-3 py-1 rounded-full border border-red-200 animate-pulse">
+                <Lock className="h-3 w-3" />
+                <span className="text-xs font-bold uppercase">Fechado</span>
+              </div>
+            )}
 
             {/* Mobile Menu Button */}
             <Button

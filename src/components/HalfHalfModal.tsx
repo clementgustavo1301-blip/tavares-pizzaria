@@ -21,6 +21,7 @@ import {
 import { useOrder } from "@/context/OrderContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useProductAvailability } from "@/hooks/useProductAvailability";
 
 interface HalfHalfModalProps {
   open: boolean;
@@ -33,34 +34,47 @@ interface CrustOption {
   name: string;
   price: number;
   is_active: boolean;
+  isBlocked?: boolean;
 }
 
 export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps) {
-  const { addToCart } = useOrder();
+  const { addToCart, isStoreOpen } = useOrder();
   const [flavor1Id, setFlavor1Id] = useState<string>("");
   const [flavor2Id, setFlavor2Id] = useState<string>("");
   const [selectedBorda, setSelectedBorda] = useState<string>("");
   const [observation, setObservation] = useState("");
   const [crustOptions, setCrustOptions] = useState<CrustOption[]>([]);
   const [loadingCrusts, setLoadingCrusts] = useState(false);
+  const { checkAvailability, unavailableIngredients } = useProductAvailability();
 
   useEffect(() => {
     if (open) {
       fetchCrustOptions();
     }
-  }, [open]);
+  }, [open, unavailableIngredients]);
 
   const fetchCrustOptions = async () => {
     setLoadingCrusts(true);
     try {
-      const { data, error } = await supabase
+      // Fetch crusts
+      const { data: crusts, error: crustError } = await supabase
         .from("crust_options")
         .select("*")
         .eq("is_active", true)
         .order("price", { ascending: true });
 
-      if (error) throw error;
-      setCrustOptions(data || []);
+      if (crustError) throw crustError;
+
+      // Mark blocked crusts using global list
+      const processedCrusts = (crusts || []).map(crust => {
+        const isBlocked = unavailableIngredients.some(blocked => crust.name.toLowerCase().includes(blocked));
+        return {
+          ...crust,
+          isBlocked
+        };
+      });
+
+      setCrustOptions(processedCrusts);
     } catch (error) {
       console.error("Error fetching crusts:", error);
     } finally {
@@ -108,6 +122,26 @@ export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps
     if (!flavor1 || !flavor2 || !selectedBorda) {
       toast.error("Complete seu pedido", {
         description: "Selecione dois sabores e uma borda.",
+      });
+      return;
+    }
+
+    // Checking availability one last time
+    const status1 = checkAvailability(flavor1.name, flavor1.description);
+    const status2 = checkAvailability(flavor2.name, flavor2.description);
+
+    if (!status1.available || !status2.available) {
+      toast.error("Pedido Bloqueado", {
+        description: "Um dos sabores selecionados está indisponível no momento.",
+      });
+      return;
+    }
+
+    // Check if crust is blocked
+    const selectedCrust = crustOptions.find(c => c.name === selectedBorda);
+    if (selectedCrust?.isBlocked) {
+      toast.error("Borda Indisponível", {
+        description: "A borda selecionada contém ingredientes em falta.",
       });
       return;
     }
@@ -169,17 +203,23 @@ export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps
                   <SelectValue placeholder="Selecione o 1º sabor" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {availablePizzas.map((p) => (
-                    <SelectItem key={p.id} value={p.id} disabled={!p.available || p.id === flavor2Id} className="py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={p.image} alt={p.name} className="w-8 h-8 rounded object-cover" />
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">{p.name}</span>
-                          <span className="text-xs text-muted-foreground">R$ {p.price.toFixed(2).replace(".", ",")}</span>
+                  {availablePizzas.map((p) => {
+                    const avail = checkAvailability(p.name, p.description);
+                    const isItemDisabled = !p.available || !avail.available;
+                    return (
+                      <SelectItem key={p.id} value={p.id} disabled={isItemDisabled || p.id === flavor2Id} className="py-3">
+                        <div className="flex items-center gap-3">
+                          <img src={p.image} alt={p.name} className={`w-8 h-8 rounded object-cover ${isItemDisabled ? "grayscale" : ""}`} />
+                          <div className="flex flex-col text-left">
+                            <span className={`font-medium ${isItemDisabled ? "line-through text-muted-foreground" : ""}`}>
+                              {p.name} {isItemDisabled && "(Indisponível)"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">R$ {p.price.toFixed(2).replace(".", ",")}</span>
+                          </div>
                         </div>
-                      </div>
-                    </SelectItem>
-                  ))}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -195,17 +235,23 @@ export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps
                   <SelectValue placeholder="Selecione o 2º sabor" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  {availablePizzas.map((p) => (
-                    <SelectItem key={p.id} value={p.id} disabled={!p.available || p.id === flavor1Id} className="py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={p.image} alt={p.name} className="w-8 h-8 rounded object-cover" />
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">{p.name}</span>
-                          <span className="text-xs text-muted-foreground">R$ {p.price.toFixed(2).replace(".", ",")}</span>
+                  {availablePizzas.map((p) => {
+                    const avail = checkAvailability(p.name, p.description);
+                    const isItemDisabled = !p.available || !avail.available;
+                    return (
+                      <SelectItem key={p.id} value={p.id} disabled={isItemDisabled || p.id === flavor1Id} className="py-3">
+                        <div className="flex items-center gap-3">
+                          <img src={p.image} alt={p.name} className={`w-8 h-8 rounded object-cover ${isItemDisabled ? "grayscale" : ""}`} />
+                          <div className="flex flex-col text-left">
+                            <span className={`font-medium ${isItemDisabled ? "line-through text-muted-foreground" : ""}`}>
+                              {p.name} {isItemDisabled && "(Indisponível)"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">R$ {p.price.toFixed(2).replace(".", ",")}</span>
+                          </div>
                         </div>
-                      </div>
-                    </SelectItem>
-                  ))}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -222,9 +268,11 @@ export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps
               </SelectTrigger>
               <SelectContent>
                 {crustOptions.map((crust) => (
-                  <SelectItem key={crust.id} value={crust.name}>
+                  <SelectItem key={crust.id} value={crust.name} disabled={crust.isBlocked}>
                     <div className="flex justify-between w-full gap-2 items-center">
-                      <span>{crust.name}</span>
+                      <span className={crust.isBlocked ? "text-muted-foreground line-through" : ""}>
+                        {crust.name} {crust.isBlocked && "(Esgotado)"}
+                      </span>
                       <span className="text-muted-foreground text-xs">
                         {crust.price === 0 ? "Grátis" : `+ R$ ${crust.price.toFixed(2).replace(".", ",")}`}
                       </span>
@@ -261,10 +309,10 @@ export function HalfHalfModal({ open, onOpenChange, pizzas }: HalfHalfModalProps
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={!flavor1 || !flavor2 || !selectedBorda}
+                disabled={!flavor1 || !flavor2 || !selectedBorda || !isStoreOpen}
                 className="flex-1 md:flex-none min-w-[200px]"
               >
-                Adicionar ao Carrinho
+                {!isStoreOpen ? "Loja Fechada" : "Adicionar ao Carrinho"}
               </Button>
             </div>
           </div>

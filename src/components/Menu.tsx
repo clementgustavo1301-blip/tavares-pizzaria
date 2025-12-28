@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PizzaCard } from "./PizzaCard";
 import { HalfHalfModal } from "./HalfHalfModal";
+import { PromotionsBanner } from "./PromotionsBanner";
 import { useMenuItems, Pizza } from "@/hooks/useMenuItems";
 import { useOrder } from "@/context/OrderContext";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,6 +66,9 @@ export function Menu() {
           <div className="w-12 h-0.5 bg-primary/30 rounded-full" />
         </div>
       </div>
+
+      {/* Promotions Banner */}
+      <PromotionsBanner />
 
       {/* Half & Half Card */}
       {!loading && !error && pizzas.length > 0 && <div className="mb-12">

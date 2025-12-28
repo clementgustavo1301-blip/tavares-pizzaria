@@ -40,8 +40,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, Loader2, Upload, CloudUpload } from "lucide-react";
+import { Plus, Trash2, Edit, Loader2, Upload, CloudUpload, AlertTriangle } from "lucide-react";
 import { getPizzaImageByName } from "@/utils/imageHelper";
+import { useProductAvailability } from "@/hooks/useProductAvailability";
 
 interface MenuItem {
     id: string;
@@ -74,6 +75,7 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
     const [saving, setSaving] = useState(false);
     const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
     const [uploading, setUploading] = useState(false);
+    const { checkAvailability } = useProductAvailability();
 
     const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         try {
@@ -317,6 +319,18 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                                     <TableCell className="font-medium">
                                         <div className="flex flex-col">
                                             <span>{item.name}</span>
+                                            {(() => {
+                                                const status = checkAvailability(item.name, item.description);
+                                                if (!status.available) {
+                                                    return (
+                                                        <span className="text-xs text-orange-500 font-bold flex items-center gap-1">
+                                                            <AlertTriangle className="h-3 w-3" />
+                                                            {status.reason} (Falta Estoque)
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                             {item.description && (
                                                 <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                                                     {item.description}
@@ -331,10 +345,18 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                                         R$ {item.price.toFixed(2).replace(".", ",")}
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <Switch
-                                            checked={item.available}
-                                            onCheckedChange={() => handleToggleAvailability(item)}
-                                        />
+                                        {(() => {
+                                            const status = checkAvailability(item.name, item.description);
+                                            const isBlocked = !status.available;
+                                            return (
+                                                <Switch
+                                                    checked={item.available && !isBlocked}
+                                                    onCheckedChange={() => handleToggleAvailability(item)}
+                                                    disabled={isBlocked}
+                                                    className={isBlocked ? "opacity-50 cursor-not-allowed" : ""}
+                                                />
+                                            );
+                                        })()}
                                     </TableCell>
                                     <TableCell className="text-right space-x-2">
                                         <Button variant="ghost" size="icon" onClick={() => handleOpenModal(item)}>
@@ -379,15 +401,34 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                                 <div className="flex justify-between items-start mb-2 gap-2">
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-semibold truncate pr-1 text-sm leading-tight">{item.name}</h3>
+                                        {(() => {
+                                            const status = checkAvailability(item.name, item.description);
+                                            if (!status.available) {
+                                                return (
+                                                    <p className="text-xs text-orange-500 font-bold flex items-center gap-1 mt-0.5">
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        {status.reason}
+                                                    </p>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                         <p className="text-xs font-bold text-primary mt-1">
                                             R$ {item.price.toFixed(2).replace(".", ",")}
                                         </p>
                                     </div>
-                                    <Switch
-                                        checked={item.available}
-                                        onCheckedChange={() => handleToggleAvailability(item)}
-                                        className="shrink-0 scale-75 origin-top-right"
-                                    />
+                                    {(() => {
+                                        const status = checkAvailability(item.name, item.description);
+                                        const isBlocked = !status.available;
+                                        return (
+                                            <Switch
+                                                checked={item.available && !isBlocked}
+                                                onCheckedChange={() => handleToggleAvailability(item)}
+                                                disabled={isBlocked}
+                                                className={`shrink-0 scale-75 origin-top-right ${isBlocked ? "opacity-50" : ""}`}
+                                            />
+                                        );
+                                    })()}
                                 </div>
 
                                 {item.description && (
