@@ -206,18 +206,23 @@ const Kitchen = () => {
                     quantity: item.quantity,
                     observation: item.observations
                   }))
-                }))
-};
+                };
 
-// Trigger print only if NOT mobile
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                // 1. Show notification (Audio is handled by global component)
+                toast.success("Novo pedido na tela!");
 
-if (!isMobile) {
-  setPrintingOrder(newOrder);
-  toast.success("Imprimindo novo pedido...");
-} else {
-  toast.info("Novo pedido na tela!");
-}
+                // 2. Check for Mobile
+                const isMobileDevice = () => {
+                  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
+                };
+
+                // 3. Trigger print only if NOT mobile
+                if (!isMobileDevice()) {
+                  setPrintingOrder(newOrder);
+                  toast.info("Enviando para impressora...");
+                } else {
+                  console.log("Impressão automática bloqueada: Dispositivo móvel detectado.");
+                }
               }
             } catch (e) { console.error("Error auto-printing", e); }
           }
@@ -225,159 +230,202 @@ if (!isMobile) {
       )
       .subscribe();
 
-return () => {
-  supabase.removeChannel(channel);
-};
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [refreshOrders]);
 
-const handlePrint = (order: Order) => {
-  setPrintingOrder(order);
-};
+  const handlePrint = (order: Order) => {
+    setPrintingOrder(order);
+  };
 
-const getNextStatus = (current: OrderStatus): OrderStatus | null => {
-  const flow: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
-  const currentIndex = flow.indexOf(current);
+  const getNextStatus = (current: OrderStatus): OrderStatus | null => {
+    const flow: OrderStatus[] = ["aguardando", "preparando", "saiu", "entregue"];
+    const currentIndex = flow.indexOf(current);
 
-  // Se for o último do fluxo normal, não tem próximo
-  if (currentIndex === -1 || currentIndex >= flow.length - 1) return null;
+    // Se for o último do fluxo normal, não tem próximo
+    if (currentIndex === -1 || currentIndex >= flow.length - 1) return null;
 
-  return flow[currentIndex + 1];
-};
+    return flow[currentIndex + 1];
+  };
 
-const handleAdvanceStatus = async (order: Order) => {
-  const nextStatus = getNextStatus(order.status);
-  if (nextStatus) {
-    try {
-      await updateOrderStatus(order.id, nextStatus);
-      toast.success(`Pedido ${order.displayId || order.id.slice(0, 8)} atualizado!`, {
-        description: `Novo status: ${statusConfig[nextStatus].label}`,
-      });
-    } catch (error) {
-      toast.error("Erro ao atualizar pedido");
+  const handleAdvanceStatus = async (order: Order) => {
+    const nextStatus = getNextStatus(order.status);
+    if (nextStatus) {
+      try {
+        await updateOrderStatus(order.id, nextStatus);
+        toast.success(`Pedido ${order.displayId || order.id.slice(0, 8)} atualizado!`, {
+          description: `Novo status: ${statusConfig[nextStatus].label}`,
+        });
+      } catch (error) {
+        toast.error("Erro ao atualizar pedido");
+      }
     }
-  }
-};
+  };
 
-const handleRejectClick = (order: Order) => {
-  setRejectingOrder(order);
-  setRejectionReason("");
-};
+  const handleRejectClick = (order: Order) => {
+    setRejectingOrder(order);
+    setRejectionReason("");
+  };
 
-const confirmRejection = async () => {
-  if (!rejectingOrder) return;
-  if (!rejectionReason.trim()) {
-    toast.error("A justificativa é obrigatória para recusar o pedido.");
-    return;
-  }
+  const confirmRejection = async () => {
+    if (!rejectingOrder) return;
+    if (!rejectionReason.trim()) {
+      toast.error("A justificativa é obrigatória para recusar o pedido.");
+      return;
+    }
 
-  try {
-    await updateOrderStatus(rejectingOrder.id, "recusado", rejectionReason);
-    toast.success("Pedido recusado com sucesso.");
-    setRejectingOrder(null);
-  } catch (error) {
-    toast.error("Erro ao recusar pedido.");
-  }
-};
+    try {
+      await updateOrderStatus(rejectingOrder.id, "recusado", rejectionReason);
+      toast.success("Pedido recusado com sucesso.");
+      setRejectingOrder(null);
+    } catch (error) {
+      toast.error("Erro ao recusar pedido.");
+    }
+  };
 
-const activeOrders = orders.filter((o) => {
-  // Hide rejected orders
-  if (o.status === "recusado") return false;
+  const activeOrders = orders.filter((o) => {
+    // Hide rejected orders
+    if (o.status === "recusado") return false;
 
-  // For completed orders, only show those from today
-  if (o.status === "entregue") {
-    const orderDate = new Date(o.deliveredAt || o.createdAt);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Midnight today
+    // For completed orders, only show those from today
+    if (o.status === "entregue") {
+      const orderDate = new Date(o.deliveredAt || o.createdAt);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Midnight today
 
-    // If the order is older than midnight today, hide it
-    if (orderDate < today) return false;
-  }
+      // If the order is older than midnight today, hide it
+      if (orderDate < today) return false;
+    }
 
-  return true;
-});
+    return true;
+  });
 
-return (
-  <AdminLayout>
-    <div className="min-h-screen bg-foreground">
-      {/* Helper Component for Printing */}
-      <OrderPrinter order={printingOrder} />
+  return (
+    <AdminLayout>
+      <div className="min-h-screen bg-foreground">
+        {/* Helper Component for Printing */}
+        <OrderPrinter order={printingOrder} />
 
-      {/* Header */}
-      <header className="bg-card border-b-2 border-primary/20 sticky top-0 z-10 shadow-md">
-        <div className="px-4 md:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-lg md:text-xl font-serif font-bold text-foreground flex items-center gap-2">
-                <ChefHat className="h-5 w-5 text-primary" />
-                Cozinha
-              </h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
-                Sistema de Pedidos
+        {/* Header */}
+        <header className="bg-card border-b-2 border-primary/20 sticky top-0 z-10 shadow-md">
+          <div className="px-4 md:px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-lg md:text-xl font-serif font-bold text-foreground flex items-center gap-2">
+                  <ChefHat className="h-5 w-5 text-primary" />
+                  Cozinha
+                </h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">
+                  Sistema de Pedidos
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-foreground gap-2 py-1 px-2 md:px-3 text-xs md:text-sm">
+                <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                <span className="font-bold">{activeOrders.length}</span>
+                <span className="hidden sm:inline">ativos</span>
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshOrders}
+                disabled={isOrderLoading}
+                className="hover:border-primary px-2"
+              >
+                <RefreshCw className={cn("h-4 w-4", isOrderLoading && "animate-spin")} />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Kanban Board */}
+        <main className="p-2 md:p-6">
+          {isOrderLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-pulse text-primary-foreground/60">Carregando pedidos...</div>
+            </div>
+          ) : activeOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="p-8 rounded-full bg-primary-foreground/10 mb-6">
+                <Clock className="h-16 w-16 text-primary-foreground/40" />
+              </div>
+              <h2 className="text-xl font-serif text-primary-foreground mb-2">
+                Nenhum pedido no momento
+              </h2>
+              <p className="text-primary-foreground/60 text-center max-w-sm">
+                Os pedidos aparecerão aqui automaticamente quando forem realizados.
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-foreground gap-2 py-1 px-2 md:px-3 text-xs md:text-sm">
-              <Users className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              <span className="font-bold">{activeOrders.length}</span>
-              <span className="hidden sm:inline">ativos</span>
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={refreshOrders}
-              disabled={isOrderLoading}
-              className="hover:border-primary px-2"
-            >
-              <RefreshCw className={cn("h-4 w-4", isOrderLoading && "animate-spin")} />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Kanban Board */}
-      <main className="p-2 md:p-6">
-        {isOrderLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-pulse text-primary-foreground/60">Carregando pedidos...</div>
-          </div>
-        ) : activeOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="p-8 rounded-full bg-primary-foreground/10 mb-6">
-              <Clock className="h-16 w-16 text-primary-foreground/40" />
-            </div>
-            <h2 className="text-xl font-serif text-primary-foreground mb-2">
-              Nenhum pedido no momento
-            </h2>
-            <p className="text-primary-foreground/60 text-center max-w-sm">
-              Os pedidos aparecerão aqui automaticamente quando forem realizados.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Mobile View - Tabs */}
-            <div className="md:hidden">
-              <Tabs defaultValue="aguardando" className="w-full">
-                <TabsList className="w-full grid grid-cols-4 mb-4">
+          ) : (
+            <>
+              {/* Mobile View - Tabs */}
+              <div className="md:hidden">
+                <Tabs defaultValue="aguardando" className="w-full">
+                  <TabsList className="w-full grid grid-cols-4 mb-4">
+                    {columns.map((status) => {
+                      const config = statusConfig[status];
+                      const Icon = config.icon;
+                      return (
+                        <TabsTrigger key={status} value={status} className="flex flex-col items-center gap-1 py-2 h-auto text-xs">
+                          <Icon className="h-4 w-4" />
+                          <span className="hidden sm:inline">{config.label.split(" ")[0]}</span>
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
                   {columns.map((status) => {
                     const config = statusConfig[status];
                     const Icon = config.icon;
+                    const columnOrders = activeOrders.filter((o) => o.status === status);
+
                     return (
-                      <TabsTrigger key={status} value={status} className="flex flex-col items-center gap-1 py-2 h-auto text-xs">
-                        <Icon className="h-4 w-4" />
-                        <span className="hidden sm:inline">{config.label.split(" ")[0]}</span>
-                      </TabsTrigger>
+                      <TabsContent key={status} value={status} className="space-y-4">
+                        <div className={cn("p-4 rounded-xl flex items-center gap-3 mb-4", config.bgColor, config.textColor)}>
+                          <div className="p-2 bg-white/20 rounded-lg">
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <h2 className="font-bold text-lg">{config.label}</h2>
+                          <Badge className="ml-auto bg-white/20 text-inherit hover:bg-white/30">
+                            {columnOrders.length}
+                          </Badge>
+                        </div>
+
+                        {columnOrders.length === 0 && (
+                          <div className="text-center py-8 text-muted-foreground text-sm bg-muted/20 rounded-lg border border-dashed">
+                            Sem pedidos nesta etapa
+                          </div>
+                        )}
+
+                        {columnOrders.map((order) => (
+                          <OrderCard
+                            key={order.id}
+                            order={order}
+                            onAdvance={() => handleAdvanceStatus(order)}
+                            onReject={() => handleRejectClick(order)}
+                            onPrint={() => handlePrint(order)}
+                            showAdvance={!!getNextStatus(order.status)}
+                            showReject={order.status === 'aguardando'}
+                          />
+                        ))}
+                      </TabsContent>
                     );
                   })}
-                </TabsList>
+                </Tabs>
+              </div>
+
+              {/* Desktop View - Grid */}
+              <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {columns.map((status) => {
                   const config = statusConfig[status];
                   const Icon = config.icon;
                   const columnOrders = activeOrders.filter((o) => o.status === status);
 
                   return (
-                    <TabsContent key={status} value={status} className="space-y-4">
-                      <div className={cn("p-4 rounded-xl flex items-center gap-3 mb-4", config.bgColor, config.textColor)}>
+                    <div key={status} className="space-y-4">
+                      {/* Column Header */}
+                      <div className={cn("p-4 rounded-xl flex items-center gap-3", config.bgColor, config.textColor)}>
                         <div className="p-2 bg-white/20 rounded-lg">
                           <Icon className="h-5 w-5" />
                         </div>
@@ -387,113 +435,70 @@ return (
                         </Badge>
                       </div>
 
-                      {columnOrders.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground text-sm bg-muted/20 rounded-lg border border-dashed">
-                          Sem pedidos nesta etapa
-                        </div>
-                      )}
-
-                      {columnOrders.map((order) => (
-                        <OrderCard
-                          key={order.id}
-                          order={order}
-                          onAdvance={() => handleAdvanceStatus(order)}
-                          onReject={() => handleRejectClick(order)}
-                          onPrint={() => handlePrint(order)}
-                          showAdvance={!!getNextStatus(order.status)}
-                          showReject={order.status === 'aguardando'}
-                        />
-                      ))}
-                    </TabsContent>
+                      {/* Order Cards */}
+                      <div className="space-y-3 min-h-[200px]">
+                        {columnOrders.length === 0 && (
+                          <div className="text-center py-8 text-primary-foreground/40 text-sm">
+                            Sem pedidos
+                          </div>
+                        )}
+                        {columnOrders.map((order) => (
+                          <OrderCard
+                            key={order.id}
+                            order={order}
+                            onAdvance={() => handleAdvanceStatus(order)}
+                            onReject={() => handleRejectClick(order)}
+                            onPrint={() => handlePrint(order)}
+                            showAdvance={!!getNextStatus(order.status)}
+                            showReject={order.status === 'aguardando'}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   );
                 })}
-              </Tabs>
-            </div>
-
-            {/* Desktop View - Grid */}
-            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {columns.map((status) => {
-                const config = statusConfig[status];
-                const Icon = config.icon;
-                const columnOrders = activeOrders.filter((o) => o.status === status);
-
-                return (
-                  <div key={status} className="space-y-4">
-                    {/* Column Header */}
-                    <div className={cn("p-4 rounded-xl flex items-center gap-3", config.bgColor, config.textColor)}>
-                      <div className="p-2 bg-white/20 rounded-lg">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <h2 className="font-bold text-lg">{config.label}</h2>
-                      <Badge className="ml-auto bg-white/20 text-inherit hover:bg-white/30">
-                        {columnOrders.length}
-                      </Badge>
-                    </div>
-
-                    {/* Order Cards */}
-                    <div className="space-y-3 min-h-[200px]">
-                      {columnOrders.length === 0 && (
-                        <div className="text-center py-8 text-primary-foreground/40 text-sm">
-                          Sem pedidos
-                        </div>
-                      )}
-                      {columnOrders.map((order) => (
-                        <OrderCard
-                          key={order.id}
-                          order={order}
-                          onAdvance={() => handleAdvanceStatus(order)}
-                          onReject={() => handleRejectClick(order)}
-                          onPrint={() => handlePrint(order)}
-                          showAdvance={!!getNextStatus(order.status)}
-                          showReject={order.status === 'aguardando'}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </main>
-    </div>
-
-    <Dialog open={!!rejectingOrder} onOpenChange={(open) => !open && setRejectingOrder(null)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Recusar Pedido</DialogTitle>
-          <DialogDescription>
-            Por favor, informe o motivo do cancelamento para o cliente.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          <Textarea
-            placeholder="Ex: Estamos sem massa no momento..."
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            className="min-h-[100px]"
-          />
-          {rejectionReason.trim() === "" && (
-            <p className="text-xs text-destructive mt-2">* A justificativa é obrigatória.</p>
+              </div>
+            </>
           )}
+        </main>
+      </div>
 
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setRejectingOrder(null)}>
-            Cancelar
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={confirmRejection}
-            disabled={!rejectionReason.trim()}
-          >
-            Confirmar Recusa
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </AdminLayout>
-);
+      <Dialog open={!!rejectingOrder} onOpenChange={(open) => !open && setRejectingOrder(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recusar Pedido</DialogTitle>
+            <DialogDescription>
+              Por favor, informe o motivo do cancelamento para o cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Ex: Estamos sem massa no momento..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="min-h-[100px]"
+            />
+            {rejectionReason.trim() === "" && (
+              <p className="text-xs text-destructive mt-2">* A justificativa é obrigatória.</p>
+            )}
+
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectingOrder(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRejection}
+              disabled={!rejectionReason.trim()}
+            >
+              Confirmar Recusa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  );
 };
 
 export default Kitchen;
