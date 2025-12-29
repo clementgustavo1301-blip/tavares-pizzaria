@@ -65,6 +65,27 @@ export function OrderAudioAlert() {
         }
     };
 
+    useEffect(() => {
+        const handleGlobalClick = () => {
+            if (!audioAllowed && audioRef.current) {
+                audioRef.current.play().then(() => {
+                    audioRef.current!.pause();
+                    audioRef.current!.currentTime = 0;
+                    setAudioAllowed(true);
+                    document.removeEventListener('click', handleGlobalClick);
+                }).catch(() => {
+                    // Ignore errors if audio isn't ready
+                });
+            }
+        };
+
+        document.addEventListener('click', handleGlobalClick);
+
+        return () => {
+            document.removeEventListener('click', handleGlobalClick);
+        };
+    }, [audioAllowed]);
+
     // If we think audio is allowed (or we want to be unobtrusive), return null.
     // Unless we specifically detected a block. 
     // For now, let's show a small button if we suspect we need interaction, 
