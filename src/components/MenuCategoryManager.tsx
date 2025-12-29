@@ -52,6 +52,7 @@ interface MenuItem {
     image_url: string | null;
     available: boolean;
     category: string;
+    production_cost: number | null;
 }
 
 interface MenuCategoryManagerProps {
@@ -69,6 +70,7 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
         name: "",
         category: categoryOptions[0] || "",
         price: "",
+        cost: "",
         description: "",
         image_url: "",
     });
@@ -143,6 +145,7 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                 name: item.name,
                 category: item.category,
                 price: item.price.toFixed(2).replace(".", ","),
+                cost: item.production_cost ? item.production_cost.toFixed(2).replace(".", ",") : "",
                 description: item.description || "",
                 image_url: item.image_url || "",
             });
@@ -152,6 +155,7 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                 name: "",
                 category: categoryOptions[0] || "",
                 price: "",
+                cost: "",
                 description: "",
                 image_url: "",
             });
@@ -166,6 +170,8 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
         }
 
         const priceNum = parseFloat(formData.price.replace(",", "."));
+        const costNum = formData.cost ? parseFloat(formData.cost.replace(",", ".")) : null;
+
         if (isNaN(priceNum) || priceNum <= 0) {
             toast.error("Preço inválido");
             return;
@@ -186,6 +192,7 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                 name: formData.name,
                 category: formData.category,
                 price: priceNum,
+                production_cost: costNum,
                 description: formData.description,
                 image_url: finalImageUrl,
             };
@@ -289,6 +296,8 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                             <TableHead>Nome</TableHead>
                             <TableHead>Categoria</TableHead>
                             <TableHead>Preço</TableHead>
+                            <TableHead>Custo</TableHead>
+                            <TableHead>Lucro (Margem)</TableHead>
                             <TableHead className="w-[100px] text-center">Disponível</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -343,6 +352,25 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                                     </TableCell>
                                     <TableCell>
                                         R$ {item.price.toFixed(2).replace(".", ",")}
+                                    </TableCell>
+                                    <TableCell>
+                                        {item.production_cost ? `R$ ${item.production_cost.toFixed(2).replace(".", ",")}` : "-"}
+                                    </TableCell>
+                                    <TableCell>
+                                        {item.production_cost ? (() => {
+                                            const profit = item.price - item.production_cost;
+                                            const margin = (profit / item.price) * 100;
+                                            let colorClass = "text-foreground";
+                                            if (margin < 20) colorClass = "text-red-500 font-bold";
+                                            else if (margin > 50) colorClass = "text-green-500 font-bold";
+
+                                            return (
+                                                <div className={colorClass}>
+                                                    <div>R$ {profit.toFixed(2).replace(".", ",")}</div>
+                                                    <div className="text-xs">({margin.toFixed(0)}%)</div>
+                                                </div>
+                                            )
+                                        })() : "-"}
                                     </TableCell>
                                     <TableCell className="text-center">
                                         {(() => {
@@ -496,14 +524,24 @@ export function MenuCategoryManager({ title, categories, categoryOptions }: Menu
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="price">Preço (R$) *</Label>
+                                <Label htmlFor="price">Preço Venda (R$) *</Label>
                                 <Input
                                     id="price"
                                     value={formData.price}
                                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                                     placeholder="0,00"
-                                    type="number" // Note: Input with type="number" doesn't work well with commas in standard HTML, but let's stick to text or handle simple logic
-                                // Keeping it "text" to allow commas is safer given previous code used replace(",", ".") on string
+                                    type="text"
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="cost">Custo Produção (R$)</Label>
+                                <Input
+                                    id="cost"
+                                    value={formData.cost}
+                                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                                    placeholder="0,00"
+                                    type="text"
                                 />
                             </div>
                         </div>

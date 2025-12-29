@@ -24,6 +24,12 @@ interface FlavorStat {
   revenue: number;
 }
 
+interface MenuItemCost {
+  id: string;
+  name: string;
+  production_cost: number | null;
+}
+
 const statusLabels: Record<string, string> = {
   pending: "Aguardando",
   preparing: "Preparando",
@@ -46,14 +52,16 @@ const weekDays = [
 const Reports = () => {
   const [orders, setOrders] = useState<DbOrder[]>([]);
   const [orderItems, setOrderItems] = useState<DbOrderItem[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItemCost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ordersRes, itemsRes] = await Promise.all([
-          supabase.from("orders").select("*").order("created_at", { ascending: true }), // Fetch oldest first for sequence
+        const [ordersRes, itemsRes, menuRes] = await Promise.all([
+          supabase.from("orders").select("*").order("created_at", { ascending: true }),
           supabase.from("order_items").select("*"),
+          supabase.from("menu_items").select("id, name, production_cost"),
         ]);
 
         if (ordersRes.data) {
@@ -79,6 +87,7 @@ const Reports = () => {
         }
 
         if (itemsRes.data) setOrderItems(itemsRes.data);
+        if (menuRes.data) setMenuItems(menuRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -154,6 +163,43 @@ const Reports = () => {
       );
     })
     .reduce((sum, order) => sum + (order.total_amount || 0), 0);
+
+  // --- Cost & Profit Calculations ---
+  // Helper to get cost for a single item (approximated by current menu cost)
+  const getItemCost = (itemName: string): number => {
+    const menuItem = menuItems.find(m => m.name === itemName);
+    return menuItem?.production_cost || 0;
+  };
+
+  const calculateOrderCost = (orderId: string) => {
+    const items = orderItems.filter(i => i.order_id === orderId);
+    return items.reduce((sum, item) => sum + (getItemCost(item.pizza_name) * item.quantity), 0);
+  };
+
+  const totalCost = completedOrders.reduce((sum, order) => sum + calculateOrderCost(order.id), 0);
+  const totalProfit = totalRevenue - totalCost;
+  const totalMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  const todayCost = completedOrders
+    .filter((order) => {
+      const orderDate = new Date(order.created_at);
+      const today = new Date();
+      return orderDate.toDateString() === today.toDateString();
+    })
+    .reduce((sum, order) => sum + calculateOrderCost(order.id), 0);
+  const todayProfit = todayRevenue - todayCost;
+
+  const monthCost = completedOrders
+    .filter((order) => {
+      const orderDate = new Date(order.created_at);
+      const now = new Date();
+      return (
+        orderDate.getMonth() === now.getMonth() &&
+        orderDate.getFullYear() === now.getFullYear()
+      );
+    })
+    .reduce((sum, order) => sum + calculateOrderCost(order.id), 0);
+  const monthProfit = monthRevenue - monthCost;
 
   // Stats for Intelligence (USING COMPLETED ORDERS ONLY)
   const getIntelligenceData = () => {
@@ -619,6 +665,54 @@ const Reports = () => {
               <div className="text-2xl font-bold text-foreground">
                 R$ {totalRevenue.toFixed(2).replace(".", ",")}
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Profit Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Lucro Hoje
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                R$ {todayProfit.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="text-xs text-muted-foreground">Margem: {((todayProfit / (todayRevenue || 1)) * 100).toFixed(0)}%</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Lucro do Mês
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                R$ {monthProfit.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="text-xs text-muted-foreground">Margem: {((monthProfit / (monthRevenue || 1)) * 100).toFixed(0)}%</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Lucro Total
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                R$ {totalProfit.toFixed(2).replace(".", ",")}
+              </div>
+              <p className="text-xs text-muted-foreground">Margem: {totalMargin.toFixed(0)}%</p>
             </CardContent>
           </Card>
         </div>
