@@ -118,7 +118,7 @@ const Reports = () => {
   const completedOrderItems = orderItems.filter(item => completedOrderIds.has(item.order_id));
 
   // --- Calculations (REJECTED ORDERS / LOST REVENUE) ---
-  const rejectedOrders = orders.filter(order => order.status === 'rejected' || order.status === 'recusado' as any);
+  const rejectedOrders = orders.filter(order => order.status === 'rejected' || (order.status as string) === 'recusado');
   const rejectedOrderIds = new Set(rejectedOrders.map(o => o.id));
   const rejectedOrderItems = orderItems.filter(item => rejectedOrderIds.has(item.order_id));
 
@@ -262,10 +262,8 @@ const Reports = () => {
       let calcAvgPrepTime = -1;
       if (validPrepOrders.length > 0) {
         const totalDiff = validPrepOrders.reduce((acc, o) => {
-          // @ts-ignore
-          const start = new Date(o.preparation_started_at).getTime();
-          // @ts-ignore
-          const end = new Date(o.ready_at).getTime();
+          const start = new Date(o.preparation_started_at!).getTime();
+          const end = new Date(o.ready_at!).getTime();
           return acc + ((end - start) / 60000);
         }, 0);
         calcAvgPrepTime = Math.round(totalDiff / validPrepOrders.length);
@@ -465,7 +463,8 @@ const Reports = () => {
     });
 
     // Top Flavors
-    const finalY1 = (doc as any).lastAutoTable?.finalY || currentY + 40;
+    // @ts-expect-error - jspdf-autotable adds lastAutoTable to jsPDF instance
+    const finalY1 = doc.lastAutoTable?.finalY || currentY + 40;
     doc.text("Top 5 Sabores Mais Vendidos", 14, finalY1 + 15);
 
     autoTable(doc, {
@@ -481,7 +480,8 @@ const Reports = () => {
     });
 
     // --- NEW: REJECTED SUMMARY ---
-    const finalYRejected = (doc as any).lastAutoTable?.finalY || finalY1 + 50;
+    // @ts-expect-error - jspdf-autotable adds lastAutoTable to jsPDF instance
+    const finalYRejected = doc.lastAutoTable?.finalY || finalY1 + 50;
     doc.setTextColor(185, 28, 28); // Red color for attention
     doc.text("Relatório de Perdas / Pedidos Recusados", 14, finalYRejected + 15);
 
@@ -497,7 +497,8 @@ const Reports = () => {
     });
 
     // Top REJECTED Flavors
-    const finalYRejectedFlavors = (doc as any).lastAutoTable?.finalY || finalYRejected + 40;
+    // @ts-expect-error - jspdf-autotable adds lastAutoTable to jsPDF instance
+    const finalYRejectedFlavors = doc.lastAutoTable?.finalY || finalYRejected + 40;
     doc.setTextColor(60, 60, 60); // Reset color
     doc.setFontSize(10);
     doc.text("Top Sabores Recusados (Oportunidade de Melhoria)", 14, finalYRejectedFlavors + 10);
@@ -516,7 +517,8 @@ const Reports = () => {
 
 
     // Order History - SHOWING ALL FOR AUDIT BUT MARKING STATUS
-    const finalY2 = (doc as any).lastAutoTable?.finalY || finalYRejectedFlavors + 50;
+    // @ts-expect-error - jspdf-autotable adds lastAutoTable to jsPDF instance
+    const finalY2 = doc.lastAutoTable?.finalY || finalYRejectedFlavors + 50;
     doc.setFontSize(12);
     doc.text("Histórico Recente de Pedidos (Todos)", 14, finalY2 + 15);
 

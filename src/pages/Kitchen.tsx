@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderPrinter } from "@/components/OrderPrinter";
 import { supabase } from "@/integrations/supabase/client";
+import { isMobileDevice } from "@/lib/deviceUtils";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType; bgColor: string; textColor: string }> = {
   aguardando: { label: "Novos Pedidos", icon: Clock, bgColor: "bg-accent", textColor: "text-accent-foreground" },
@@ -201,7 +202,7 @@ const Kitchen = () => {
                   status: 'aguardando',
                   paymentMethod: orderData.payment_method,
                   createdAt: new Date(orderData.created_at),
-                  items: itemsData.map((item: any) => ({
+                  items: itemsData.map((item: { id: string; pizza_name: string; price: number; quantity: number; observations: string | null }) => ({
                     pizza: { id: item.id, name: item.pizza_name, price: item.price, description: "", ingredients: [], image: "" },
                     quantity: item.quantity,
                     observation: item.observations
@@ -211,12 +212,7 @@ const Kitchen = () => {
                 // 1. Show notification (Audio is handled by global component)
                 toast.success("Novo pedido na tela!");
 
-                // 2. Check for Mobile
-                const isMobileDevice = () => {
-                  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
-                };
-
-                // 3. Trigger print only if NOT mobile
+                // 2. Trigger print only if NOT mobile
                 if (!isMobileDevice()) {
                   setPrintingOrder(newOrder);
                   toast.info("Enviando para impressora...");
@@ -345,18 +341,6 @@ const Kitchen = () => {
           {isOrderLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-pulse text-primary-foreground/60">Carregando pedidos...</div>
-            </div>
-          ) : activeOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="p-8 rounded-full bg-primary-foreground/10 mb-6">
-                <Clock className="h-16 w-16 text-primary-foreground/40" />
-              </div>
-              <h2 className="text-xl font-serif text-primary-foreground mb-2">
-                Nenhum pedido no momento
-              </h2>
-              <p className="text-primary-foreground/60 text-center max-w-sm">
-                Os pedidos aparecerão aqui automaticamente quando forem realizados.
-              </p>
             </div>
           ) : (
             <>

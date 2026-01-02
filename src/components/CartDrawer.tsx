@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Lock } from "lucide-react";
 import { useOrder } from "@/context/OrderContext";
 import { useNavigate } from "react-router-dom";
 import { DrinksUpsellModal } from "./DrinksUpsellModal";

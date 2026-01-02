@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,7 @@ interface Promotion {
     description: string | null;
     price: number | null;
     image_url: string | null;
-    active: boolean;
+    is_active: boolean;
     days_of_week: number[]; // 0=Sun, 1=Mon, ...
 }
 
@@ -80,17 +80,13 @@ export default function AdminPromotions() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-        fetchPromotions();
-    }, []);
-
-    const fetchPromotions = async () => {
+    const fetchPromotions = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from("promotions")
                 .select("*")
-                .order("active", { ascending: false });
+                .order("is_active", { ascending: false });
 
             if (error) throw error;
             setPromotions(data || []);
@@ -100,7 +96,11 @@ export default function AdminPromotions() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchPromotions();
+    }, [fetchPromotions]);
 
     const handleOpenModal = (promo?: Promotion) => {
         if (promo) {
@@ -180,7 +180,7 @@ export default function AdminPromotions() {
             } else {
                 const { error } = await supabase
                     .from("promotions")
-                    .insert([{ ...payload, active: true }]);
+                    .insert([{ ...payload, is_active: true }]);
                 if (error) throw error;
                 toast.success("Promoção criada!");
             }
@@ -198,13 +198,13 @@ export default function AdminPromotions() {
         try {
             const { error } = await supabase
                 .from("promotions")
-                .update({ active: !promo.active })
+                .update({ is_active: !promo.is_active })
                 .eq("id", promo.id);
 
             if (error) throw error;
 
-            setPromotions(prev => prev.map(p => p.id === promo.id ? { ...p, active: !p.active } : p));
-            toast.success(`Promoção ${!promo.active ? "ativada" : "desativada"}.`);
+            setPromotions(prev => prev.map(p => p.id === promo.id ? { ...p, is_active: !p.is_active } : p));
+            toast.success(`Promoção ${!promo.is_active ? "ativada" : "desativada"}.`);
         } catch (error) {
             console.error(error);
             toast.error("Erro ao atualizar status.");
@@ -239,18 +239,18 @@ export default function AdminPromotions() {
 
     return (
         <AdminLayout>
-            <div className="space-y-6 container mx-auto p-4 md:p-8 pt-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-4 md:space-y-6 container mx-auto p-4 md:p-6 lg:p-8 pt-4 md:pt-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight">Promoções Diárias</h2>
-                        <p className="text-muted-foreground">Gerencie as ofertas automáticas por dia da semana.</p>
+                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Promoções Diárias</h2>
+                        <p className="text-sm md:text-base text-muted-foreground">Gerencie as ofertas automáticas por dia da semana.</p>
                     </div>
                     <Button onClick={() => handleOpenModal()}>
                         <Plus className="mr-2 h-4 w-4" /> Nova Promoção
                     </Button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {loading ? (
                         <div className="col-span-full flex justify-center py-12">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -261,7 +261,7 @@ export default function AdminPromotions() {
                         </div>
                     ) : (
                         promotions.map(promo => (
-                            <Card key={promo.id} className={!promo.active ? "opacity-60 grayscale" : ""}>
+                            <Card key={promo.id} className={!promo.is_active ? "opacity-60 grayscale" : ""}>
                                 <div className="aspect-video w-full overflow-hidden relative group">
                                     <img
                                         src={promo.image_url || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop"}
@@ -270,7 +270,7 @@ export default function AdminPromotions() {
                                     />
                                     <div className="absolute top-2 right-2">
                                         <Switch
-                                            checked={promo.active}
+                                            checked={promo.is_active}
                                             onCheckedChange={() => handleToggleStatus(promo)}
                                         />
                                     </div>

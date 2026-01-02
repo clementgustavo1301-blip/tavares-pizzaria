@@ -51,8 +51,9 @@ export default function StockControl() {
             toast.success(`"${newIngredient}" bloqueado com sucesso!`);
             setNewIngredient("");
             fetchIngredients();
-        } catch (error: any) {
-            if (error.code === "23505") {
+        } catch (error: unknown) {
+            const err = error as { code?: string };
+            if (err.code === "23505") {
                 toast.error("Este ingrediente já está na lista.");
             } else {
                 toast.error("Erro ao bloquear ingrediente.");

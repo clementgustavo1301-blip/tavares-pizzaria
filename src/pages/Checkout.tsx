@@ -123,18 +123,18 @@ const Checkout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-paper py-8">
+    <div className="min-h-screen bg-paper py-4 md:py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className="mb-6"
+          className="mb-4 md:mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Voltar ao Cardápio
         </Button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
           {/* Order Summary */}
           <Card>
             <CardHeader>

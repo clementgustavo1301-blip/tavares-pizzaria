@@ -148,21 +148,21 @@ export function Header({ onCartClick }: HeaderProps) {
             >
               Contato
             </a>
-            <a
-              href="/meus-pedidos"
+            <Link
+              to="/meus-pedidos"
               className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
               onClick={() => setMobileMenuOpen(false)}
             >
               Meus Pedidos
-            </a>
-            <a
-              href="/login"
+            </Link>
+            <Link
+              to="/login"
               className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)} // Certifique-se de que, ao clicar, o menu feche automaticamente
+              onClick={() => setMobileMenuOpen(false)}
             >
-              <Lock className="h-4 w-4" /> {/* Ícone: Use um ícone de cadeado (Lock). */}
+              <Lock className="h-4 w-4" />
               Área Restrita
-            </a>
+            </Link>
           </nav>
         </div>
       </div>

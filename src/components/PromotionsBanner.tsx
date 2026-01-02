@@ -21,7 +21,7 @@ interface Promotion {
     description: string | null;
     price: number | null;
     image_url: string | null;
-    active: boolean;
+    is_active: boolean;
     days_of_week: number[];
 }
 
@@ -41,7 +41,7 @@ export function PromotionsBanner() {
             const { data, error } = await supabase
                 .from("promotions")
                 .select("*")
-                .eq("active", true);
+                .eq("is_active", true);
 
             if (error) throw error;
 
@@ -49,6 +49,9 @@ export function PromotionsBanner() {
             const todaysPromos = (data || []).filter((p: Promotion) =>
                 p.days_of_week && p.days_of_week.includes(today)
             );
+
+            console.log("Fetched promotions:", data);
+            console.log("Active promotions for today:", todaysPromos);
 
             setPromotions(todaysPromos);
         } catch (error) {
@@ -79,8 +82,11 @@ export function PromotionsBanner() {
         toast.success("Promoção adicionada ao carrinho!");
     };
 
-    if (loading) return null; // Don't show loader to avoid layout shift, just render nothing until loaded
-    if (promotions.length === 0) return null;
+    if (loading) return null;
+    if (promotions.length === 0) {
+        console.log("No promotions to display today.");
+        return null;
+    }
 
     return (
         <div className="w-full mb-8">

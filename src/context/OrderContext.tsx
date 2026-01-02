@@ -18,6 +18,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   rejectionReason?: string;
+  internalNotes?: string;
   customerName: string;
   customerAddress: string;
   paymentMethod: string;
@@ -63,6 +64,7 @@ const statusFromDb: Record<DbOrderStatus, OrderStatus> = {
   ready: "saiu",
   delivered: "entregue",
   rejected: "recusado",
+  fraud: "recusado", // Map fraud to rejected for safety
 };
 
 export function OrderProvider({ children }: { children: ReactNode }) {
@@ -132,6 +134,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
           total: dbOrder.total_amount,
           status: statusFromDb[dbOrder.status as DbOrderStatus] || "aguardando",
           rejectionReason: dbOrder.rejection_reason || undefined,
+          internalNotes: dbOrder.internal_notes || undefined,
           paymentMethod: dbOrder.payment_method,
           createdAt: new Date(dbOrder.created_at),
           preparationStartAt: dbOrder.preparation_started_at ? new Date(dbOrder.preparation_started_at) : undefined,
@@ -240,8 +243,18 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const placeOrder = useCallback(
     async (customerName: string, customerAddress: string, paymentMethod: string, cpf: string, deliveryType: "delivery" | "pickup"): Promise<Order> => {
+
+      if (!customerName || !paymentMethod) {
+        throw new Error("Dados incompletos para o pedido");
+      }
+
+      // Generate UUID client-side to bypass RLS select restriction
+      const orderId = crypto.randomUUID();
+      const now = new Date();
+
       // Prepare payload with correct column names and types
       const orderPayload = {
+        id: orderId, // Set the ID manually
         customer_name: customerName,
         address: customerAddress,
         total_amount: Number(cartTotal),
@@ -249,16 +262,15 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         payment_method: paymentMethod,
         cpf: cpf,
         delivery_type: deliveryType,
+        created_at: now.toISOString() // Set created_at explicitly if needed, or let DB handle it (but we explicitly use 'now' for local return)
       };
 
       console.log("Inserting order with payload:", orderPayload);
 
-      // Insert order into Supabase
-      const { data: orderData, error: orderError } = await supabase
+      // Insert order into Supabase WITHOUT selecting backend
+      const { error: orderError } = await supabase
         .from("orders")
-        .insert(orderPayload)
-        .select()
-        .single();
+        .insert(orderPayload);
 
       if (orderError) {
         console.error("Error creating order:", orderError.message, orderError.details);
@@ -275,7 +287,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         }
 
         return {
-          order_id: orderData.id,
+          order_id: orderId, // Use the generated ID
           pizza_name: String(item.pizza.name),
           quantity: Number(item.quantity) || 1,
           price: Number(item.pizza.price),
@@ -295,21 +307,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       }
 
       const order: Order = {
-        id: orderData.id,
-        displayId: orderData.display_id || undefined,
+        id: orderId,
+        displayId: undefined, // Will be populated after refresh
         items: [...cart],
         total: cartTotal,
         status: "aguardando",
         customerName,
         customerAddress,
         paymentMethod,
-        createdAt: new Date(orderData.created_at),
+        createdAt: now,
       };
 
       setCurrentOrder(order);
       clearCart();
 
-      // Refresh orders list
+      // Refresh orders list to get the real display_id and sync
       await fetchOrders();
 
       return order;
@@ -425,8 +437,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "store_settings", filter: "id=eq.1" },
         (payload) => {
-          if (payload.new && typeof payload.new.is_open === 'boolean') {
-            setIsStoreOpen(payload.new.is_open);
+          if (payload.new && typeof (payload.new as any).is_open === 'boolean') {
+            setIsStoreOpen((payload.new as any).is_open);
           }
         }
       )

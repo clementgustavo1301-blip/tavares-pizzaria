@@ -30,7 +30,7 @@ const OrderTracking = () => {
       const timer = setTimeout(() => setAnimateStatus(false), 600);
       return () => clearTimeout(timer);
     }
-  }, [order?.status]);
+  }, [order?.status, order]);
 
   if (!order) {
     return (

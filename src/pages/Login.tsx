@@ -47,13 +47,14 @@ export default function Login() {
       const from = location.state?.from?.pathname || "/cozinha";
       navigate(from, { replace: true });
 
-    } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message === "Invalid login credentials" ? "E-mail ou senha incorretos" : err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("Login error:", error);
+      setError(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos" : error.message);
       toast({
         variant: "destructive",
         title: "Erro ao entrar",
-        description: err.message === "Invalid login credentials" ? "Verifique suas credenciais e tente novamente." : "Ocorreu um erro ao tentar fazer login.",
+        description: error.message === "Invalid login credentials" ? "Verifique suas credenciais e tente novamente." : "Ocorreu um erro ao tentar fazer login.",
       });
     } finally {
       setLoading(false);

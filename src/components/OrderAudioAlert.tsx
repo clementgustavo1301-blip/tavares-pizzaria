@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Volume2, VolumeX } from "lucide-react";
+import { VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import alertSound from "../assets/alert.mp3";
 
 export function OrderAudioAlert() {
     const [audioAllowed, setAudioAllowed] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const hasNotifiedRef = useRef(false);
 
     useEffect(() => {
         // Initialize audio object
@@ -53,36 +54,46 @@ export function OrderAudioAlert() {
     };
 
     const enableAudio = () => {
+        setAudioAllowed(true);
         if (audioRef.current) {
             audioRef.current.play().then(() => {
                 audioRef.current!.pause();
                 audioRef.current!.currentTime = 0;
-                setAudioAllowed(true);
-                toast.success("Áudio de pedidos ativado!");
             }).catch((err) => {
-                console.error("Could not enable audio:", err);
+                console.error("Could not enable audio on button click:", err);
+                setAudioAllowed(false); // Fallback se realmente for bloqueado
             });
         }
     };
 
     useEffect(() => {
-        const handleGlobalClick = () => {
-            if (!audioAllowed && audioRef.current) {
-                audioRef.current.play().then(() => {
-                    audioRef.current!.pause();
-                    audioRef.current!.currentTime = 0;
-                    setAudioAllowed(true);
-                    document.removeEventListener('click', handleGlobalClick);
-                }).catch(() => {
-                    // Ignore errors if audio isn't ready
-                });
+        const handleGlobalInteraction = () => {
+            if (!audioAllowed && !hasNotifiedRef.current) {
+                hasNotifiedRef.current = true;
+                setAudioAllowed(true);
+
+                if (audioRef.current) {
+                    audioRef.current.play().then(() => {
+                        audioRef.current!.pause();
+                        audioRef.current!.currentTime = 0;
+                    }).catch((err) => {
+                        console.warn("Global audio activation failed:", err);
+                    });
+                }
+
+                window.removeEventListener('click', handleGlobalInteraction, { capture: true });
+                window.removeEventListener('touchstart', handleGlobalInteraction, { capture: true });
             }
         };
 
-        document.addEventListener('click', handleGlobalClick);
+        if (!audioAllowed) {
+            window.addEventListener('click', handleGlobalInteraction, { capture: true });
+            window.addEventListener('touchstart', handleGlobalInteraction, { capture: true });
+        }
 
         return () => {
-            document.removeEventListener('click', handleGlobalClick);
+            window.removeEventListener('click', handleGlobalInteraction, { capture: true });
+            window.removeEventListener('touchstart', handleGlobalInteraction, { capture: true });
         };
     }, [audioAllowed]);
 
