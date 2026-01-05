@@ -1,11 +1,10 @@
-import AdminLayout from "@/components/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CrustManager } from "@/components/CrustManager";
 import { MenuCategoryManager } from "@/components/MenuCategoryManager";
 
 export default function MenuManager() {
   return (
-    <AdminLayout>
+    <>
       <div className="p-6 md:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -66,6 +65,6 @@ export default function MenuManager() {
           </TabsContent>
         </Tabs>
       </div>
-    </AdminLayout>
+    </>
   );
 }

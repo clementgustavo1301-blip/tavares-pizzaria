@@ -1,17 +1,15 @@
-import { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar";
 import { OrderAudioAlert } from "@/components/OrderAudioAlert";
 
-interface AdminLayoutProps {
-  children: ReactNode;
-}
-
-const AdminLayout = ({ children }: AdminLayoutProps) => {
+const AdminLayout = () => {
   return (
     <div className="flex min-h-screen bg-background">
       <OrderAudioAlert />
       <AdminSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto">
+        <Outlet />
+      </main>
     </div>
   );
 };

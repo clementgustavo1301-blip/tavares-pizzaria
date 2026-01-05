@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, Package, Clock, ChefHat, Truck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { formatCPF, cleanCPF } from "@/utils/formatters";
 import logo from "@/assets/logo.png";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatOrderNumber } from "@/lib/formatOrderNumber";
 
 interface OrderItem {
   id: string;
@@ -50,7 +51,7 @@ const MyOrders = () => {
     setCpf(formatCPF(e.target.value));
   };
 
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     const cleanedCPF = cleanCPF(cpf);
 
     if (cleanedCPF.length !== 11) {
@@ -107,13 +108,43 @@ const MyOrders = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [cpf]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleSearch();
     }
   };
+
+  // Real-time updates for orders
+  useEffect(() => {
+    if (!hasSearched || orders.length === 0) return;
+
+    const orderIds = orders.map(o => o.id);
+
+    const channel = supabase
+      .channel('my-orders-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+        },
+        (payload) => {
+          // Check if the updated order is in our list
+          if (orderIds.includes(payload.new.id)) {
+            // Refresh the orders list
+            handleSearch();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hasSearched, orders.length, handleSearch]);
 
   return (
     <div className="min-h-screen bg-paper py-8">
@@ -188,7 +219,7 @@ const MyOrders = () => {
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base font-medium">
-                          {order.display_id || `Pedido #${order.id.slice(0, 8)}`}
+                          {formatOrderNumber(order.display_id, order.id)}
                         </CardTitle>
                         <Badge variant={isRejected ? "destructive" : "default"} className={cn("flex items-center gap-1", !isRejected && status.color)}>
                           {status.icon}

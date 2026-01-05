@@ -23,7 +23,6 @@ export function Header({ onCartClick }: HeaderProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu on resize
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -37,48 +36,30 @@ export function Header({ onCartClick }: HeaderProps) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 transition-all duration-300",
-        scrolled
-          ? "bg-background/95 backdrop-blur-md shadow-md"
-          : "bg-background/80 backdrop-blur-sm"
+        "sticky top-0 z-50 bg-background border-b",
+        scrolled && "shadow-sm"
       )}
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 shrink-0">
-            <img src={logo} alt="Tavares Pizzaria" className="h-10 md:h-12 w-auto rounded-full" />
+          <a href="/" className="flex items-center gap-2">
+            <img src={logo} alt="Tavares Pizzaria" className="h-10 w-auto rounded-full" />
           </a>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="/#cardapio" // Keep hash link as is but prefix with /
-              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
-            >
+          <nav className="hidden md:flex items-center gap-6">
+            <a href="/#cardapio" className="text-sm text-foreground/70 hover:text-foreground">
               Cardápio
             </a>
-            <a
-              href="/#sobre"
-              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
-            >
+            <a href="/#sobre" className="text-sm text-foreground/70 hover:text-foreground">
               Sobre Nós
             </a>
-            <a
-              href="/#contato"
-              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
-            >
+            <a href="/#contato" className="text-sm text-foreground/70 hover:text-foreground">
               Contato
             </a>
-            <Link
-              to="/meus-pedidos"
-              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
-            >
+            <Link to="/meus-pedidos" className="text-sm text-foreground/70 hover:text-foreground">
               Meus Pedidos
             </Link>
-            <Link
-              to="/login"
-              className="text-foreground/80 hover:text-primary transition-colors font-medium relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
-            >
+            <Link to="/login" className="text-sm text-foreground/70 hover:text-foreground">
               Área Restrita
             </Link>
           </nav>
@@ -88,79 +69,55 @@ export function Header({ onCartClick }: HeaderProps) {
               variant="outline"
               size="icon"
               onClick={onCartClick}
-              className="relative hover:border-primary"
-              aria-label="Carrinho de compras"
+              className="relative"
             >
-              <ShoppingCart className="h-5 w-5" />
+              <ShoppingCart className="h-4 w-4" />
               {cartItemsCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-scale-in shadow-lg">
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 w-4 flex items-center justify-center">
                   {cartItemsCount}
                 </span>
               )}
             </Button>
 
             {!isStoreOpen && (
-              <div className="hidden md:flex items-center gap-2 bg-red-100 text-red-700 px-3 py-1 rounded-full border border-red-200 animate-pulse">
+              <div className="hidden md:flex items-center gap-1.5 bg-red-50 text-red-600 px-2 py-1 rounded text-xs">
                 <Lock className="h-3 w-3" />
-                <span className="text-xs font-bold uppercase">Fechado</span>
+                <span>Fechado</span>
               </div>
             )}
 
-            {/* Mobile Menu Button */}
             <Button
               variant="ghost"
               size="icon"
               className="md:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Menu"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         <div
           className={cn(
-            "md:hidden overflow-hidden transition-all duration-300 ease-in-out",
-            mobileMenuOpen ? "max-h-[400px] opacity-100 mt-4" : "max-h-0 opacity-0"
+            "md:hidden overflow-hidden",
+            mobileMenuOpen ? "max-h-64 mt-3" : "max-h-0"
           )}
         >
-          <nav className="flex flex-col gap-1 pb-4 border-t pt-4">
-            <a
-              href="#cardapio"
-              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
-            >
+          <nav className="flex flex-col gap-1 pb-3 border-t pt-3">
+            <a href="#cardapio" className="text-sm py-2 px-3 hover:bg-muted rounded" onClick={() => setMobileMenuOpen(false)}>
               Cardápio
             </a>
-            <a
-              href="#sobre"
-              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
-            >
+            <a href="#sobre" className="text-sm py-2 px-3 hover:bg-muted rounded" onClick={() => setMobileMenuOpen(false)}>
               Sobre Nós
             </a>
-            <a
-              href="#contato"
-              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
-            >
+            <a href="#contato" className="text-sm py-2 px-3 hover:bg-muted rounded" onClick={() => setMobileMenuOpen(false)}>
               Contato
             </a>
-            <Link
-              to="/meus-pedidos"
-              className="text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
-            >
+            <Link to="/meus-pedidos" className="text-sm py-2 px-3 hover:bg-muted rounded" onClick={() => setMobileMenuOpen(false)}>
               Meus Pedidos
             </Link>
-            <Link
-              to="/login"
-              className="flex items-center gap-2 text-foreground/80 hover:text-primary hover:bg-primary/5 transition-colors font-medium py-3 px-4 rounded-lg"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <Lock className="h-4 w-4" />
+            <Link to="/login" className="text-sm py-2 px-3 hover:bg-muted rounded flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+              <Lock className="h-3 w-3" />
               Área Restrita
             </Link>
           </nav>

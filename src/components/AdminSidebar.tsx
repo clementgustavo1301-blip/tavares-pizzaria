@@ -17,14 +17,11 @@ const AdminSidebar = () => {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium",
-      isActive
-        ? "bg-primary text-primary-foreground"
-        : "text-foreground hover:bg-muted",
+      "flex items-center gap-3 px-3 py-2 rounded text-sm",
+      isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
       isCollapsed && "justify-center px-2"
     );
 
-  /* STORE TOGGLE */
   const { isStoreOpen, toggleStoreStatus } = useOrder();
   const [toggling, setToggling] = useState(false);
 
@@ -40,31 +37,28 @@ const AdminSidebar = () => {
   return (
     <aside
       className={cn(
-        "bg-card border-r border-border min-h-screen flex flex-col transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-20" : "w-64"
+        "bg-card border-r min-h-screen flex flex-col",
+        isCollapsed ? "w-16" : "w-56"
       )}
     >
-      {/* Logo & Toggle */}
-      <div className={cn("p-4 border-b border-border flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
-        {!isCollapsed && <img src={logo} alt="Tavares Pizzaria" className="h-10" />}
+      <div className={cn("p-3 border-b flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
+        {!isCollapsed && <img src={logo} alt="Tavares Pizzaria" className="h-8" />}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8 text-muted-foreground"
+          className="h-7 w-7"
         >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </Button>
       </div>
 
-      {/* Store Status Toggle */}
-      <div className={cn("px-4 py-4 border-b border-border transition-all", isCollapsed ? "flex justify-center" : "")}>
-        <div className={cn("flex items-center gap-3", isCollapsed ? "flex-col" : "justify-between")}>
-          <div className={cn("flex items-center gap-2", isCollapsed ? "hidden" : "flex")}>
-            <div className={cn("w-2 h-2 rounded-full animate-pulse", isStoreOpen ? "bg-green-500" : "bg-red-500")} />
-            <span className="text-sm font-medium">{isStoreOpen ? "Aberto" : "Fechado"}</span>
+      <div className={cn("px-3 py-3 border-b", isCollapsed ? "flex justify-center" : "")}>
+        <div className={cn("flex items-center gap-2", isCollapsed ? "flex-col" : "justify-between")}>
+          <div className={cn("flex items-center gap-2 text-sm", isCollapsed && "hidden")}>
+            <div className={cn("w-2 h-2 rounded-full", isStoreOpen ? "bg-green-500" : "bg-red-500")} />
+            <span>{isStoreOpen ? "Aberto" : "Fechado"}</span>
           </div>
-
           <Switch
             checked={isStoreOpen}
             onCheckedChange={handleToggle}
@@ -74,8 +68,7 @@ const AdminSidebar = () => {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-2 mt-4">
+      <nav className="flex-1 p-2 space-y-1 mt-2">
         <NavLink to="/cozinha" className={linkClass} title={isCollapsed ? "Cozinha" : undefined}>
           <ChefHat className="h-5 w-5 shrink-0" />
           {!isCollapsed && <span>Cozinha</span>}
@@ -98,11 +91,10 @@ const AdminSidebar = () => {
         </NavLink>
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-border">
+      <div className="p-3 border-t">
         <Button
           variant="ghost"
-          className={cn("w-full text-muted-foreground hover:text-foreground", isCollapsed ? "justify-center px-0" : "justify-start gap-3")}
+          className={cn("w-full text-sm", isCollapsed ? "justify-center px-0" : "justify-start gap-2")}
           onClick={handleLogout}
           title={isCollapsed ? "Sair" : undefined}
         >

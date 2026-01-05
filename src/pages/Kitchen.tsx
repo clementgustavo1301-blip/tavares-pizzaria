@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { useOrder, Order, OrderStatus } from "@/context/OrderContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import AdminLayout from "@/components/AdminLayout";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderPrinter } from "@/components/OrderPrinter";
 import { supabase } from "@/integrations/supabase/client";
 import { isMobileDevice } from "@/lib/deviceUtils";
+import { formatOrderNumber } from "@/lib/formatOrderNumber";
 
 const statusConfig: Record<OrderStatus, { label: string; icon: React.ElementType; bgColor: string; textColor: string }> = {
   aguardando: { label: "Novos Pedidos", icon: Clock, bgColor: "bg-accent", textColor: "text-accent-foreground" },
@@ -50,7 +50,7 @@ const OrderCard = ({
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
         <CardTitle className="text-base font-mono font-bold text-primary">
-          {order.displayId || `#${order.id.slice(0, 8)}`}
+          {formatOrderNumber(order.displayId, order.id)}
         </CardTitle>
         <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
           {new Date(order.createdAt).toLocaleTimeString("pt-BR", {
@@ -120,7 +120,7 @@ const OrderCard = ({
               const gpsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                 order.customerAddress + " Mossoro RN"
               )}`;
-              const message = `🍕 *Nova Entrega - Pedido #${order.id.slice(0, 8)}*\n👤 *Cliente:* ${order.customerName
+              const message = `🍕 *Nova Entrega - Pedido ${formatOrderNumber(order.displayId, order.id)}*\n👤 *Cliente:* ${order.customerName
                 }\n📍 *Endereço:* ${order.customerAddress}\n\n🗺️ *Abrir no GPS:* ${gpsLink}`;
               window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
             }}
@@ -250,7 +250,7 @@ const Kitchen = () => {
     if (nextStatus) {
       try {
         await updateOrderStatus(order.id, nextStatus);
-        toast.success(`Pedido ${order.displayId || order.id.slice(0, 8)} atualizado!`, {
+        toast.success(`Pedido ${formatOrderNumber(order.displayId, order.id)} atualizado!`, {
           description: `Novo status: ${statusConfig[nextStatus].label}`,
         });
       } catch (error) {
@@ -298,7 +298,7 @@ const Kitchen = () => {
   });
 
   return (
-    <AdminLayout>
+    <>
       <div className="min-h-screen bg-foreground">
         {/* Helper Component for Printing */}
         <OrderPrinter order={printingOrder} />
@@ -366,7 +366,9 @@ const Kitchen = () => {
 
                     return (
                       <TabsContent key={status} value={status} className="space-y-4">
-                        <div className={cn("p-4 rounded-xl flex items-center gap-3 mb-4", config.bgColor, config.textColor)}>
+                        <div className={cn("p-4 rounded-xl flex items-center gap-3 mb-4 relative overflow-hidden", config.bgColor, config.textColor)}>
+                          {/* Barra vertical lateral */}
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/40" />
                           <div className="p-2 bg-white/20 rounded-lg">
                             <Icon className="h-5 w-5" />
                           </div>
@@ -409,7 +411,9 @@ const Kitchen = () => {
                   return (
                     <div key={status} className="space-y-4">
                       {/* Column Header */}
-                      <div className={cn("p-4 rounded-xl flex items-center gap-3", config.bgColor, config.textColor)}>
+                      <div className={cn("p-4 rounded-xl flex items-center gap-3 relative overflow-hidden", config.bgColor, config.textColor)}>
+                        {/* Barra vertical lateral */}
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/40" />
                         <div className="p-2 bg-white/20 rounded-lg">
                           <Icon className="h-5 w-5" />
                         </div>
@@ -481,7 +485,7 @@ const Kitchen = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 };
 

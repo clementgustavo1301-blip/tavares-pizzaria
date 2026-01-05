@@ -129,6 +129,42 @@
   h3 {
     @apply font-serif;
   }
+
+  /* Remove outline de foco visual (barra piscando) */
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: none;
+  }
+
+  /* Remove outline de botões, inputs e elementos interativos */
+  button:focus,
+  input:focus,
+  textarea:focus,
+  select:focus,
+  a:focus,
+  [role="button"]:focus,
+  [tabindex]:focus {
+    outline: none;
+  }
+
+  /* Remove cursor piscante de elementos não editáveis */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  label,
+  div[tabindex],
+  span[tabindex] {
+    caret-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
 }
 
 @layer utilities {

@@ -1,11 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Clock, ChefHat, Truck, CheckCircle, Home, Package } from "lucide-react";
+import { Clock, ChefHat, Truck, CheckCircle, Home, Package, MessageCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useOrder, OrderStatus } from "@/context/OrderContext";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { formatOrderNumber } from "@/lib/formatOrderNumber";
 import logo from "@/assets/logo.png";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const statusSteps: { status: OrderStatus; label: string; icon: React.ElementType; description: string }[] = [
   { status: "aguardando", label: "Aguardando", icon: Clock, description: "Pedido recebido" },
@@ -17,11 +21,120 @@ const statusSteps: { status: OrderStatus; label: string; icon: React.ElementType
 const OrderTracking = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { orders, currentOrder } = useOrder();
+  const { orders, currentOrder, refreshOrders } = useOrder();
   const [animateStatus, setAnimateStatus] = useState(false);
+  const [crustPrices, setCrustPrices] = useState<Record<string, number>>({});
 
   const order = orders.find((o) => o.id === orderId) || currentOrder;
   const currentStepIndex = order ? statusSteps.findIndex((s) => s.status === order.status) : -1;
+
+  // Fetch crust prices
+  useEffect(() => {
+    const fetchCrustPrices = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("crust_options")
+          .select("name, price");
+
+        if (error) throw error;
+
+        const pricesMap: Record<string, number> = {};
+        data?.forEach((crust) => {
+          pricesMap[crust.name] = crust.price || 0;
+        });
+        setCrustPrices(pricesMap);
+      } catch (error) {
+        console.error("Error fetching crust prices:", error);
+      }
+    };
+
+    fetchCrustPrices();
+  }, []);
+
+  // Real-time notifications for order status updates
+  useEffect(() => {
+    if (!orderId) return;
+
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          const statusMessages: Record<string, { title: string; description: string }> = {
+            pending: {
+              title: "Pedido Recebido",
+              description: "Seu pedido foi recebido e está aguardando preparo.",
+            },
+            preparing: {
+              title: "🔥 Preparando seu Pedido!",
+              description: "Sua pizza está no forno! Em breve estará pronta.",
+            },
+            ready: {
+              title: "🚚 Pedido Saiu para Entrega!",
+              description: "Seu pedido está a caminho! Prepare-se para receber.",
+            },
+            delivered: {
+              title: "✅ Pedido Entregue!",
+              description: "Bom apetite! Obrigado por escolher a Tavares Pizzaria.",
+            },
+            rejected: {
+              title: "❌ Pedido Cancelado",
+              description: payload.new.rejection_reason || "Seu pedido foi cancelado.",
+            },
+          };
+
+          const message = statusMessages[newStatus as string];
+          if (message) {
+            // Refresh orders to update UI
+            refreshOrders();
+
+            // Show notification
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(message.title, {
+                body: message.description,
+                icon: "/logo.png",
+              });
+            }
+
+            // Show toast
+            if (newStatus === "rejected") {
+              toast.error(message.title, { description: message.description });
+            } else {
+              toast.success(message.title, { description: message.description });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    // Request notification permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, refreshOrders]);
+
+  // Calculate crust total from observations
+  const crustTotal = order?.items.reduce((sum, item) => {
+    const observation = item.observation || "";
+    const crustMatch = observation.match(/Borda:\s*([^.]+)/);
+    if (crustMatch) {
+      const crustName = crustMatch[1].trim();
+      const crustPrice = crustPrices[crustName] || 0;
+      return sum + (crustPrice * item.quantity);
+    }
+    return sum;
+  }, 0) || 0;
 
   // Trigger animation when status changes
   useEffect(() => {
@@ -61,7 +174,7 @@ const OrderTracking = () => {
             Acompanhe seu Pedido
           </h1>
           <p className="text-muted-foreground mt-2">
-            Pedido: <span className="font-mono font-bold text-primary text-lg">{order.displayId || `#${order.id.slice(0, 8)}`}</span>
+            Pedido: <span className="font-mono font-bold text-primary text-lg">{formatOrderNumber(order.displayId, order.id)}</span>
           </p>
         </div>
 
@@ -178,12 +291,57 @@ const OrderTracking = () => {
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between mt-4 pt-4 border-t">
-                <span className="font-semibold text-lg">Total</span>
-                <span className="font-bold text-xl text-primary">
-                  R$ {order.total.toFixed(2).replace(".", ",")}
-                </span>
+
+              {/* Totais */}
+              <div className="mt-4 pt-4 border-t space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal (Pizzas)</span>
+                  <span className="font-medium">
+                    R$ {(order.total - crustTotal).toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
+
+                {crustTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Bordas</span>
+                    <span className="font-medium">
+                      R$ {crustTotal.toFixed(2).replace(".", ",")}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="font-semibold text-lg">Total do Pedido</span>
+                  <span className="font-bold text-xl text-primary">
+                    R$ {order.total.toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
               </div>
+
+              {/* Aviso sobre taxa de entrega */}
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold text-amber-900">Taxa de Entrega</p>
+                  <p className="text-amber-700 text-xs mt-1">
+                    O valor da entrega será informado pelo WhatsApp e cobrado separadamente.
+                  </p>
+                </div>
+              </div>
+
+              {/* Botão WhatsApp para consultar taxa de entrega */}
+              <Button
+                onClick={() => {
+                  const message = `Olá! Gostaria de confirmar o valor da entrega para o meu pedido:\n\n📦 *Pedido:* ${formatOrderNumber(order.displayId, order.id)}\n💰 *Valor do Pedido:* R$ ${order.total.toFixed(2).replace(".", ",")}\n📍 *Endereço:* ${order.customerAddress}\n\nQual o valor da taxa de entrega para este endereço?`;
+                  // Usando o número direto para permitir mensagem pré-preenchida
+                  const whatsappUrl = `https://wa.me/5584999299186?text=${encodeURIComponent(message)}`;
+                  window.open(whatsappUrl, "_blank");
+                }}
+                className="w-full mt-3 gap-2 bg-green-600 hover:bg-green-700"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Consultar Taxa de Entrega via WhatsApp
+              </Button>
             </div>
           </CardContent>
         </Card>

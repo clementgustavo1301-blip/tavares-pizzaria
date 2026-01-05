@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import AdminLayout from "@/components/AdminLayout";
 
 interface UnavailableIngredient {
     id: string;
@@ -78,7 +77,7 @@ export default function StockControl() {
     };
 
     return (
-        <AdminLayout>
+        <>
             <div className="container mx-auto p-6 max-w-4xl">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-foreground mb-2">Controle de Estoque</h1>
@@ -152,6 +151,6 @@ export default function StockControl() {
                     </Card>
                 </div>
             </div>
-        </AdminLayout>
+        </>
     );
 }

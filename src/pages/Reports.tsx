@@ -11,12 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import AdminLayout from "@/components/AdminLayout";
 import { supabase, DbOrder, DbOrderItem } from "@/integrations/supabase/client";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format, differenceInMinutes, parseISO, getDay, startOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatOrderNumber } from "@/lib/formatOrderNumber";
 
 interface FlavorStat {
   name: string;
@@ -541,16 +541,14 @@ const Reports = () => {
 
   if (isLoading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
-        </div>
-      </AdminLayout>
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
@@ -834,7 +832,7 @@ const Reports = () => {
                     {orders.slice(0, 20).map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs">
-                          {order.display_id || `#${order.id.slice(0, 8)}`}
+                          {formatOrderNumber(order.display_id, order.id)}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {format(new Date(order.created_at), "dd/MM/yyyy HH:mm")}
@@ -872,7 +870,7 @@ const Reports = () => {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

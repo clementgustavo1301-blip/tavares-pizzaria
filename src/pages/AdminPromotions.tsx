@@ -36,7 +36,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit, Loader2, ImagePlus, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import AdminLayout from "@/components/AdminLayout";
 
 interface Promotion {
     id: string;
@@ -238,167 +237,183 @@ export default function AdminPromotions() {
     };
 
     return (
-        <AdminLayout>
-            <div className="space-y-4 md:space-y-6 container mx-auto p-4 md:p-6 lg:p-8 pt-4 md:pt-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4">
-                    <div>
-                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Promoções Diárias</h2>
-                        <p className="text-sm md:text-base text-muted-foreground">Gerencie as ofertas automáticas por dia da semana.</p>
-                    </div>
-                    <Button onClick={() => handleOpenModal()}>
-                        <Plus className="mr-2 h-4 w-4" /> Nova Promoção
-                    </Button>
+        <div className="container mx-auto p-4 max-w-6xl">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">Promoções</h2>
+                <Button onClick={() => handleOpenModal()} size="sm">
+                    <Plus className="mr-1 h-4 w-4" /> Nova
+                </Button>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-
-                <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {loading ? (
-                        <div className="col-span-full flex justify-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : promotions.length === 0 ? (
-                        <div className="col-span-full text-center py-12 bg-muted/20 rounded-lg">
-                            <p className="text-muted-foreground">Nenhuma promoção cadastrada.</p>
-                        </div>
-                    ) : (
-                        promotions.map(promo => (
-                            <Card key={promo.id} className={!promo.is_active ? "opacity-60 grayscale" : ""}>
-                                <div className="aspect-video w-full overflow-hidden relative group">
+            ) : promotions.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                    Nenhuma promoção cadastrada.
+                </div>
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-16"></TableHead>
+                            <TableHead>Título</TableHead>
+                            <TableHead className="w-24">Preço</TableHead>
+                            <TableHead className="w-48">Dias</TableHead>
+                            <TableHead className="w-20 text-center">Status</TableHead>
+                            <TableHead className="w-32 text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {promotions.map(promo => (
+                            <TableRow key={promo.id} className={!promo.is_active ? "opacity-50" : ""}>
+                                <TableCell>
                                     <img
-                                        src={promo.image_url || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop"}
+                                        src={promo.image_url || "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=80&h=80&fit=crop"}
                                         alt={promo.title}
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        className="w-12 h-12 object-cover rounded"
                                     />
-                                    <div className="absolute top-2 right-2">
-                                        <Switch
-                                            checked={promo.is_active}
-                                            onCheckedChange={() => handleToggleStatus(promo)}
-                                        />
-                                    </div>
-                                </div>
-                                <CardHeader className="p-4">
-                                    <CardTitle className="flex justify-between items-start gap-2 text-lg">
-                                        <span className="line-clamp-1">{promo.title}</span>
-                                        {promo.price && <span className="text-primary whitespace-nowrap">R$ {promo.price.toFixed(2).replace(".", ",")}</span>}
-                                    </CardTitle>
-                                    <p className="text-sm text-muted-foreground line-clamp-2 h-10">{promo.description}</p>
-
-                                    <div className="flex flex-wrap gap-1 mt-3">
+                                </TableCell>
+                                <TableCell>
+                                    <div className="font-medium">{promo.title}</div>
+                                    {promo.description && (
+                                        <div className="text-xs text-muted-foreground line-clamp-1">{promo.description}</div>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {promo.price ? `R$ ${promo.price.toFixed(2).replace(".", ",")}` : "-"}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex flex-wrap gap-1">
                                         {DAYS.map(day => (
                                             <span
                                                 key={day.id}
-                                                className={`text-[10px] px-1.5 py-0.5 rounded-sm uppercase font-bold ${promo.days_of_week.includes(day.id) ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                                                className={`text-[9px] px-1 py-0.5 rounded ${promo.days_of_week.includes(day.id) ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}
                                             >
                                                 {day.label.slice(0, 3)}
                                             </span>
                                         ))}
                                     </div>
-
-                                    <div className="flex gap-2 mt-4 pt-2 border-t">
-                                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenModal(promo)}>
-                                            <Edit className="h-4 w-4 mr-2" /> Editar
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Switch
+                                        checked={promo.is_active}
+                                        onCheckedChange={() => handleToggleStatus(promo)}
+                                    />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex gap-1 justify-end">
+                                        <Button variant="ghost" size="sm" onClick={() => handleOpenModal(promo)}>
+                                            <Edit className="h-3 w-3" />
                                         </Button>
-                                        <Button variant="outline" size="sm" className="flex-1 hover:bg-destructive/10 hover:text-destructive border-transparent" onClick={() => setDeletingId(promo.id)}>
-                                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                                        <Button variant="ghost" size="sm" onClick={() => setDeletingId(promo.id)}>
+                                            <Trash2 className="h-3 w-3 text-destructive" />
                                         </Button>
                                     </div>
-                                </CardHeader>
-                            </Card>
-                        ))
-                    )}
-                </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            )}
 
-                <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                    <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                            <DialogTitle>{editingPromo ? "Editar Promoção" : "Nova Promoção"}</DialogTitle>
-                        </DialogHeader>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base">{editingPromo ? "Editar" : "Nova Promoção"}</DialogTitle>
+                    </DialogHeader>
 
-                        <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label>Título *</Label>
-                                <Input
-                                    value={formData.title}
-                                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    placeholder="Ex: Terça Maluca"
-                                />
-                            </div>
+                    <div className="grid gap-3 py-2">
+                        <div className="grid gap-1.5">
+                            <Label className="text-xs">Título *</Label>
+                            <Input
+                                value={formData.title}
+                                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                placeholder="Ex: Terça Maluca"
+                                className="h-8 text-sm"
+                            />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label>Preço (Opcional)</Label>
-                                <Input
-                                    value={formData.price}
-                                    onChange={e => setFormData({ ...formData, price: e.target.value })}
-                                    placeholder="0,00"
-                                />
-                            </div>
+                        <div className="grid gap-1.5">
+                            <Label className="text-xs">Preço</Label>
+                            <Input
+                                value={formData.price}
+                                onChange={e => setFormData({ ...formData, price: e.target.value })}
+                                placeholder="0,00"
+                                className="h-8 text-sm"
+                            />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label>Descrição</Label>
-                                <Textarea
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="Detalhes da promoção..."
-                                />
-                            </div>
+                        <div className="grid gap-1.5">
+                            <Label className="text-xs">Descrição</Label>
+                            <Textarea
+                                value={formData.description}
+                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="Detalhes..."
+                                className="text-sm resize-none"
+                                rows={2}
+                            />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label>Dias da Semana *</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {DAYS.map(day => (
-                                        <div key={day.id} className="flex items-center space-x-2 border p-2 rounded-md cursor-pointer hover:bg-muted/50" onClick={() => toggleDay(day.id)}>
-                                            <Checkbox
-                                                id={`day-${day.id}`}
-                                                checked={formData.days_of_week.includes(day.id)}
-                                                onCheckedChange={() => toggleDay(day.id)}
-                                            />
-                                            <label htmlFor={`day-${day.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                                                {day.label}
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label>Imagem</Label>
-                                <div className="flex items-center gap-4">
-                                    {formData.image_url && (
-                                        <img src={formData.image_url} alt="Preview" className="w-16 h-16 object-cover rounded-md border" />
-                                    )}
-                                    <label className="flex-1 cursor-pointer">
-                                        <div className="flex items-center justify-center w-full h-9 px-4 py-2 text-sm font-medium transition-colors border rounded-md hover:bg-accent hover:text-accent-foreground">
-                                            {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
-                                            {uploading ? "Enviando..." : "Carregar Imagem"}
-                                        </div>
-                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
-                                    </label>
-                                </div>
+                        <div className="grid gap-1.5">
+                            <Label className="text-xs">Dias *</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                                {DAYS.map(day => (
+                                    <div key={day.id} className="flex items-center space-x-1.5 border px-2 py-1 rounded text-xs cursor-pointer" onClick={() => toggleDay(day.id)}>
+                                        <Checkbox
+                                            id={`day-${day.id}`}
+                                            checked={formData.days_of_week.includes(day.id)}
+                                            onCheckedChange={() => toggleDay(day.id)}
+                                            className="h-3 w-3"
+                                        />
+                                        <label htmlFor={`day-${day.id}`} className="cursor-pointer">
+                                            {day.label}
+                                        </label>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleSave} disabled={saving}>
-                                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Salvar
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                        <div className="grid gap-1.5">
+                            <Label className="text-xs">Imagem</Label>
+                            <div className="flex items-center gap-2">
+                                {formData.image_url && (
+                                    <img src={formData.image_url} alt="Preview" className="w-12 h-12 object-cover rounded border" />
+                                )}
+                                <label className="flex-1 cursor-pointer">
+                                    <div className="flex items-center justify-center h-8 px-3 text-xs border rounded">
+                                        {uploading ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <ImagePlus className="mr-1.5 h-3 w-3" />}
+                                        {uploading ? "Enviando..." : "Carregar"}
+                                    </div>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
 
-                <AlertDialog open={!!deletingId} onOpenChange={o => !o && setDeletingId(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir Promoção?</AlertDialogTitle>
-                            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-        </AdminLayout>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsModalOpen(false)} size="sm">Cancelar</Button>
+                        <Button onClick={handleSave} disabled={saving} size="sm">
+                            {saving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                            Salvar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={!!deletingId} onOpenChange={o => !o && setDeletingId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-base">Excluir?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm">Esta ação não pode ser desfeita.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
     );
 }
